@@ -3,7 +3,7 @@
 #
 # Boot the QNX 8.0 image made by mkqnximage on QEMU's q35 machine, which has
 # the ICH9 SMBus controller (mkqnximage's own runner uses the default "pc"
-# machine, which only has the older PIIX4 one).
+# machine, which only has the older PIIX4 one; MACHINE=pc selects that).
 #
 #   bench/qemu/run-qnx.sh start   boot in the background
 #   bench/qemu/run-qnx.sh stop    power off
@@ -22,7 +22,9 @@
 #                                        built by bench/qemu/build-qemu.sh)
 #   SSH_PORT  host port for guest SSH   (default 2222)
 #   RAM, CPUS                           (default 1G, 2)
+#   MACHINE   q35 (ICH9 SMBus, default) or pc (PIIX4 SMBus)
 set -u
+MACHINE=${MACHINE:-q35}
 IMAGE=${IMAGE:-$HOME/work/qnx-image}
 QEMU=${QEMU:-$HOME/work/qemu/bin/qemu-system-x86_64}
 SSH_PORT=${SSH_PORT:-2222}
@@ -40,12 +42,18 @@ start() {
     fi
     accel=(-cpu max)
     [ -w /dev/kvm ] && accel=(-enable-kvm -cpu host)
+    if [ "$MACHINE" = q35 ]; then
+        # q35 puts if=ide disks on AHCI, which devb-eide can't drive: add a PIIX4 IDE controller
+        disk=(-device piix4-ide,id=pide
+              -drive file="$IMAGE/output/disk-qemu.vmdk",if=none,id=drv0
+              -device ide-hd,drive=drv0,bus=pide.0)
+    else
+        disk=(-drive file="$IMAGE/output/disk-qemu.vmdk",if=ide)
+    fi
     rm -f "$QMP" "$RUN/serial.raw"
-    "$QEMU" -machine q35 "${accel[@]}" -smp "$CPUS" -m "$RAM" \
+    "$QEMU" -machine "$MACHINE" "${accel[@]}" -smp "$CPUS" -m "$RAM" \
         -kernel "$IMAGE/output/ifs.bin" \
-        -device piix4-ide,id=pide \
-        -drive file="$IMAGE/output/disk-qemu.vmdk",if=none,id=drv0 \
-        -device ide-hd,drive=drv0,bus=pide.0 \
+        "${disk[@]}" \
         -netdev "user,id=net0,hostfwd=tcp:127.0.0.1:$SSH_PORT-:22" \
         -device virtio-net-pci,netdev=net0 \
         -object rng-random,filename=/dev/urandom,id=rng0 -device virtio-rng-pci,rng=rng0 \
