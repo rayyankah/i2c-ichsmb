@@ -7,14 +7,25 @@ on: [push, pull_request]
 jobs:
   host:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - run: make -C tests/host
   qemu-baremetal:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      DEBIAN_FRONTEND: noninteractive
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64 qemu-system-x86 ovmf
+      - name: install QEMU, OVMF and MinGW
+        run: |
+          # man-db rebuilds its index after every install, which can take
+          # many minutes on the hosted runners; the tests need no man pages
+          sudo rm -f /var/lib/man-db/auto-update
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends \
+              gcc-mingw-w64-x86-64 qemu-system-x86 ovmf
       - run: bash tests/baremetal/run.sh
       - uses: actions/upload-artifact@v4
         if: always()
