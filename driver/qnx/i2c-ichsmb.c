@@ -8,12 +8,9 @@
  * This file supplies the hardware functions and binds driver/core to QNX:
  * PCI lookup, I/O ports, the interrupt event and the clock.
  *
- * ---------------------------------------------------------------------
- * DRAFT - NOT YET COMPILED. Written on 14 Nov 2026 from the public QNX
- * documentation before the QNX kit was available. Every line marked
- * CHECK must be compared with the installed headers (<hw/i2c.h>,
- * <pci/pci.h>) before this file is relied on.
- * ---------------------------------------------------------------------
+ * The controller cannot hold the bus between two messages, so the driver
+ * reports I2C_CAPS_FORCE_STOP and implements xfer(); the library then
+ * hands write-then-read requests over as one combined transfer.
  *
  * Options (after the library's own --u unit and --b speed):
  *   -i        interrupt mode (default: polling)
@@ -117,14 +114,14 @@ static int find_controller(ichsmb_t *h)
         h->model = "ICH9";
         h->pci = pci_device_attach(bdf, pci_attachFlags_DEFAULT, &err);
         if (h->pci == NULL) {
-            fprintf(stderr, "i2c-ichsmb: pci_device_attach: %s\n", pci_strerror(err));     /* CHECK pci_strerror */
+            fprintf(stderr, "i2c-ichsmb: pci_device_attach: %s\n", pci_strerror(err));
             return -1;
         }
         if (pci_device_read_ba(h->pci, &nba, ba, pci_reqType_e_UNSPECIFIED) != PCI_ERR_OK) {
             return -1;
         }
         for (i = 0; i < nba; i++) {
-            if (ba[i].type == pci_asType_e_IO) {                /* CHECK pci_ba_t field and enum names */
+            if (ba[i].type == pci_asType_e_IO) {
                 h->iobase = (uintptr_t)ba[i].addr;
             }
         }
@@ -133,7 +130,7 @@ static int find_controller(ichsmb_t *h)
         hostc = (uint8_t)((hostc | ICH_HOSTC_HST_EN) & ~ICH_HOSTC_SMI_EN);
         hostc = h->bus.smbus_block_read ? (uint8_t)(hostc & ~ICH_HOSTC_I2C_EN)
                                         : (uint8_t)(hostc | ICH_HOSTC_I2C_EN);
-        pci_device_cfg_wr8(h->pci, ICH_CFG_HOSTC, hostc, NULL);  /* CHECK signature */
+        pci_device_cfg_wr8(h->pci, ICH_CFG_HOSTC, hostc, NULL);
         h->dev.caps = SMB_CAP_BLOCK | SMB_CAP_I2C_READ;
         if (hostc & ICH_HOSTC_I2C_EN) {
             h->dev.caps |= SMB_CAP_I2C_WRITE;
@@ -142,7 +139,7 @@ static int find_controller(ichsmb_t *h)
             pci_irq_t irq[1];
             int_t     nirq = 1;
 
-            if (pci_device_read_irq(h->pci, &nirq, irq) == PCI_ERR_OK && nirq > 0) {    /* CHECK */
+            if (pci_device_read_irq(h->pci, &nirq, irq) == PCI_ERR_OK && nirq > 0) {
                 h->irq = (int)irq[0];
             } else {
                 fprintf(stderr, "i2c-ichsmb: no interrupt for this controller, using polling\n");
@@ -169,7 +166,7 @@ static int find_controller(ichsmb_t *h)
             }
             pci_device_cfg_wr8(h->pci, PIIX4_CFG_SMBHSTCFG, (uint8_t)(cfg | PIIX4_HSTCFG_HST_EN), NULL);
         }
-        h->dev.caps = 0;        /* quick, byte, byte data, word data only: see docs/LIMITS.md */
+        h->dev.caps = 0;        /* quick, byte, byte data and word data only (see DEVLOG, 14 Nov) */
         h->irq = -1;            /* polling only on this controller */
         return 0;
     }
@@ -180,17 +177,22 @@ static int find_controller(ichsmb_t *h)
 
 /* ------------------------------------------------------ DDK entry points */
 
+/*
+ * libi2c-master counts a call as successful only when it returns exactly
+ * I2C_STATUS_DONE; on anything else it logs each error bit and fails the
+ * client's devctl with EIO. DONE means "finished, with or without error",
+ * so errors are reported as DONE plus the cause.
+ */
 static i2c_status_t to_status(int rc)
 {
-    /* CHECK against <hw/i2c.h>: whether error states are combined with I2C_STATUS_DONE. */
     switch (rc) {
     case SMB_OK:        return I2C_STATUS_DONE;
-    case SMB_E_NACK:    return I2C_STATUS_NACK;
-    case SMB_E_BUS:     return I2C_STATUS_ARBL;
+    case SMB_E_NACK:    return (i2c_status_t)(I2C_STATUS_DONE | I2C_STATUS_NACK);
+    case SMB_E_BUS:     return (i2c_status_t)(I2C_STATUS_DONE | I2C_STATUS_ARBL);
     case SMB_E_TIMEOUT:
-    case SMB_E_BUSY:    return I2C_STATUS_BUSY;
-    case SMB_E_ABORTED: return I2C_STATUS_ABORT;
-    default:            return I2C_STATUS_ERROR;
+    case SMB_E_BUSY:    return (i2c_status_t)(I2C_STATUS_DONE | I2C_STATUS_BUSY);
+    case SMB_E_ABORTED: return (i2c_status_t)(I2C_STATUS_DONE | I2C_STATUS_ABORT);
+    default:            return (i2c_status_t)(I2C_STATUS_DONE | I2C_STATUS_ERROR);
     }
 }
 
@@ -224,7 +226,11 @@ static void *ichsmb_init(int argc, char *argv[])
     if (find_controller(h) != 0 || h->iobase == 0) {
         goto fail;
     }
-    h->iobase = mmap_device_io(SMB_IO_LEN, h->iobase);          /* CHECK: docs prefer mmap(); identity on x86 */
+    h->iobase = mmap_device_io(SMB_IO_LEN, h->iobase);
+    if (h->iobase == MAP_DEVICE_FAILED) {
+        perror("i2c-ichsmb: mmap_device_io");
+        goto fail;
+    }
 
     h->dev.io.ctx = h;
     h->dev.io.in8 = q_in8;
@@ -268,7 +274,7 @@ static void ichsmb_fini(void *hdl)
         InterruptDetach(h->iid);
     }
     if (h->pci != NULL) {
-        pci_device_detach(h->pci);                              /* CHECK */
+        pci_device_detach(h->pci);
     }
     free(h);
 }
@@ -320,7 +326,8 @@ static int ichsmb_driver_info(void *hdl, i2c_driver_info_t *info)
 {
     info->speed_mode = I2C_SPEED_STANDARD;
     info->addr_mode = I2C_ADDRFMT_7BIT;
-    info->verbosity = (unsigned)((ichsmb_t *)hdl)->verbose;     /* CHECK field type */
+    info->verbosity = (uint32_t)((ichsmb_t *)hdl)->verbose;
+    info->caps = I2C_CAPS_FORCE_STOP;   /* every message ends with a stop; use xfer() */
     return 0;
 }
 

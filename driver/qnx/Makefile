@@ -2,7 +2,6 @@
 #
 # Builds the QNX driver. Needs the QNX SDP 8.0 environment:
 #   source ~/qnx800/qnxsdp-env.sh
-# Draft: not built yet.
 CC      = qcc -Vgcc_ntox86_64
 CFLAGS  = -std=gnu99 -O2 -g -Wall -Wextra -I../core
 LIBS    = -li2c-master -lsecpol -lpci
