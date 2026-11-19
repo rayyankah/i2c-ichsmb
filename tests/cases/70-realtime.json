@@ -1,0 +1,31 @@
+[
+ {
+  "name": "realtime: thermd at 30 keeps every period while hog spins at 20",
+  "mode": "irq",
+  "machines": ["q35"],
+  "shell": "/tmp/thermd -q -P 30 -t 6 >/tmp/th.out 2>&1 & sleep 1; /tmp/hog -p 20 -t 4 >/dev/null; wait; grep RESULT /tmp/th.out",
+  "expect": [
+   "RESULT periods=600 missed=\\d+ skipped=0 .*"
+  ],
+  "show": true
+ },
+ {
+  "name": "realtime: thermd at 10 loses periods while hog spins at 20",
+  "mode": "irq",
+  "machines": ["q35"],
+  "shell": "/tmp/thermd -q -P 10 -t 6 >/tmp/th.out 2>&1 & sleep 1; /tmp/hog -p 20 -t 4 >/dev/null; wait; grep RESULT /tmp/th.out",
+  "expect": [
+   "RESULT periods=600 missed=[1-9]\\d* skipped=[1-9]\\d* .*"
+  ],
+  "show": true
+ },
+ {
+  "name": "realtime: same in polling mode, thermd at 30 keeps every period",
+  "mode": "poll",
+  "shell": "/tmp/thermd -q -P 30 -t 6 >/tmp/th.out 2>&1 & sleep 1; /tmp/hog -p 20 -t 4 >/dev/null; wait; grep RESULT /tmp/th.out",
+  "expect": [
+   "RESULT periods=600 missed=\\d+ skipped=0 .*"
+  ],
+  "show": true
+ }
+]

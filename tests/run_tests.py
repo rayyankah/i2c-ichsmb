@@ -37,15 +37,20 @@ QMP = os.path.join(IMAGE, "output", "bench", "qmp.sock")
 # Driver options for each mode a case can ask for.
 MODES = {
     "poll":  "",
-    "irq":   "-i",
+    "irq":   "-I 16",                   # q35 SMBus is on I/O APIC input 16, see DESIGN.md
     "smbus": "-s",
-    "user":  "-i -U qnxuser",
+    "user":  "-I 16 -U qnxuser",
+    "irqlog": "-I 16 -vv",
+    "badirq": "-i -vv",                 # the PCI server's number (10), which never fires on q35
     "none":  None,                      # driver not running
 }
 
 
+BOOT_ENV = {}                           # bench settings of the current boot (a case's "boot")
+
+
 def bench(*args, check=True, capture=True, timeout=120):
-    env = dict(os.environ, MACHINE=ARGS.machine)
+    env = dict(os.environ, MACHINE=ARGS.machine, **BOOT_ENV)
     r = subprocess.run(["bash", BENCH, *args], env=env, timeout=timeout,
                        stdout=subprocess.PIPE if capture else None,
                        stderr=subprocess.STDOUT if capture else None, text=True)
@@ -76,20 +81,24 @@ def qmp(commands):
     call("qmp_capabilities")
     for c in commands:
         if "temp" in c:
-            call("qom-set", path="/machine/peripheral/temp0", property="temperature", value=c["temp"])
+            call("qom-set", path="/machine/peripheral/" + c.get("sensor", "temp0"),
+                 property="temperature", value=c["temp"])
     s.close()
 
 
 def build():
-    for d in ("driver/qnx", "tests/target", "tools/smbctl"):
+    for d in ("driver/qnx", "tests/target", "tools/smbctl", "demo"):
         r = subprocess.run(["make", "-s", "-C", os.path.join(ROOT, d)], stdout=subprocess.PIPE,
                            stderr=subprocess.STDOUT, text=True)
         if r.returncode != 0:
             sys.exit(f"build of {d} failed:\n{r.stdout}")
 
 
-def boot():
+def boot(settings=None):
+    global BOOT_ENV
+    BOOT_ENV = dict(settings or {})
     bench("stop", check=False)
+    time.sleep(1)
     bench("start")
     for _ in range(60):
         if guest("true")[0] == 0:
@@ -100,10 +109,12 @@ def boot():
 
 def deploy():
     files = [os.path.join(ROOT, p) for p in
-             ("driver/qnx/i2c-ichsmb", "tests/target/t_xfer", "tools/smbctl/smbctl")]
+             ("driver/qnx/i2c-ichsmb", "tests/target/t_xfer", "tools/smbctl/smbctl",
+              "demo/thermd/thermd", "demo/hog/hog", "demo/supervisor/smb-supervisor")]
     guest("mkdir -p /tmp/new")
     bench("scp", *files, "root@127.0.0.1:/tmp/new/")
-    guest("slay -f i2c-ichsmb >/dev/null 2>&1; for f in /tmp/new/*; do mv -f $f /tmp/; done")
+    guest("for p in smb-supervisor thermd hog i2c-ichsmb; do slay -f $p >/dev/null 2>&1; done; "
+          "for f in /tmp/new/*; do mv -f $f /tmp/; done")
 
 
 def start_driver(mode):
@@ -154,8 +165,10 @@ def main():
     p.add_argument("--no-boot", action="store_true", help="use the running guest")
     ARGS = p.parse_args()
 
-    cases = [c for c in load_cases()
-             if ARGS.only in c["name"] and ARGS.machine in c.get("machines", ["q35", "pc"])]
+    # Cases that need a different boot go last, so the guest reboots at most twice.
+    cases = sorted((c for c in load_cases()
+                    if ARGS.only in c["name"] and ARGS.machine in c.get("machines", ["q35", "pc"])),
+                   key=lambda c: bool(c.get("boot")))
     build()
     if not ARGS.no_boot:
         boot()
@@ -164,6 +177,11 @@ def main():
     results, mode = [], None
     t0 = time.time()
     for c in cases:
+        if c.get("boot", {}) != BOOT_ENV:
+            # The case needs QEMU started differently (e.g. a sensor left out).
+            boot(c.get("boot"))
+            deploy()
+            mode = None
         if c.get("mode", "poll") != mode or c.get("restart"):
             mode = c.get("mode", "poll")
             started, msg = start_driver(mode)
@@ -192,6 +210,9 @@ def main():
     print(f"{len(results)} cases, {len(results) - failed} passed, {failed} failed, {time.time() - t0:.0f} s")
     if not ARGS.keep:
         bench("stop", check=False)
+    elif BOOT_ENV:
+        boot()                          # leave the guest as the bench normally runs it
+        deploy()
     return 1 if failed else 0
 
 

@@ -1,6 +1,11 @@
 [
  {
-  "name": "sensor: power-up value 0 C",
+  "name": "sensor: host sets 0 C",
+  "qmp": [
+   {
+    "temp": 0
+   }
+  ],
   "ops": [
    "sendrecv:0x48:00:2"
   ],
@@ -74,6 +79,26 @@
   "shell": "/tmp/smbctl temp 0x48",
   "expect": [
    "42\\.5000 C \\(raw 0x2a80\\)"
+  ]
+ },
+ {
+  "name": "sensor: second sensor at 0x49 is independent",
+  "qmp": [
+   {
+    "temp": 20000
+   },
+   {
+    "sensor": "temp1",
+    "temp": 61500
+   }
+  ],
+  "ops": [
+   "sendrecv:0x48:00:2",
+   "sendrecv:0x49:00:2"
+  ],
+  "expect": [
+   "OK 14 00",
+   "OK 3d 80"
   ]
  }
 ]

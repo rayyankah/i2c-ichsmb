@@ -1,0 +1,42 @@
+[
+ {
+  "name": "irq: interrupts arrive on -I 16 (logged once)",
+  "mode": "irqlog",
+  "machines": ["q35"],
+  "shell": "/tmp/t_xfer soak:30:0x48:00:2 >/dev/null; slog2info -b i2c_ichsmb | grep -E 'first interrupt|no interrupt after' | tail -1",
+  "expect": [
+   ".*i2c-ichsmb: first interrupt received \\(interrupt 16\\)"
+  ]
+ },
+ {
+  "name": "irq: a wrong interrupt number is reported (PCI server's 10)",
+  "mode": "badirq",
+  "machines": ["q35"],
+  "shell": "/tmp/t_xfer soak:30:0x48:00:2 >/dev/null; slog2info -b i2c_ichsmb | grep -E 'first interrupt|no interrupt after' | tail -1",
+  "expect": [
+   ".*i2c-ichsmb: no interrupt after 20 transactions: interrupt 10 is probably not this controller's.*"
+  ]
+ },
+ {
+  "name": "irq: transfers still work when the interrupt never comes",
+  "mode": "badirq",
+  "machines": ["q35"],
+  "ops": [
+   "send:0x54:0a5a",
+   "sendrecv:0x54:0a:1"
+  ],
+  "expect": [
+   "OK",
+   "OK 5a"
+  ]
+ },
+ {
+  "name": "irq: driver logs to slog2 buffer i2c_ichsmb",
+  "mode": "irqlog",
+  "machines": ["q35"],
+  "shell": "slog2info -b i2c_ichsmb | grep 'ICH9 SMBus at' | tail -1",
+  "expect": [
+   ".*i2c-ichsmb: ICH9 SMBus at 0:1f\\.3, I/O 0x700, interrupt 16 \\(-I\\), status 0x00"
+  ]
+ }
+]

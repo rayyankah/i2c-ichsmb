@@ -9,10 +9,10 @@
   ]
  },
  {
-  "name": "scan finds the sensor and 8 EEPROMs",
+  "name": "scan finds 2 sensors and 8 EEPROMs",
   "shell": "/tmp/smbctl scan | tail -1",
   "expect": [
-   "9 device\\(s\\)"
+   "10 device\\(s\\)"
   ]
  },
  {
