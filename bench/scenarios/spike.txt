@@ -1,0 +1,8 @@
+# Sudden jumps, no ramp: what thermd's reaction time is measured against.
+# seconds  sensor  celsius
+0          0x48    40
+0          0x49    40
+10         0x48    90
+20         0x48    40
+30         0x49    90
+40         0x49    40

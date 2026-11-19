@@ -1,0 +1,6 @@
+# One sensor overheats and recovers; the other stays steady.
+# seconds  sensor  celsius  [ramp seconds]
+0          0x48    45
+0          0x49    40
+5          0x48    95       10
+25         0x48    50       10

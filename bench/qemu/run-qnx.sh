@@ -9,8 +9,9 @@
 #   bench/qemu/run-qnx.sh stop    power off
 #   bench/qemu/run-qnx.sh ssh     log in (root, key installed by mkqnximage)
 #
-# On the SMBus: a tmp105 temperature sensor at 0x48 (QMP id "temp0"), plus
-# the eight memory-module EEPROMs q35 always has at 0x50..0x57.
+# On the SMBus: tmp105 temperature sensors at the addresses in SENSORS
+# (QMP ids temp0, temp1, ...), plus the eight memory-module EEPROMs QEMU
+# always puts at 0x50..0x57.
 #
 # Networking is QEMU user mode: no bridge and no root needed. Guest SSH is
 # forwarded to 127.0.0.1:$SSH_PORT. Serial console goes to a log file, never
@@ -23,6 +24,7 @@
 #   SSH_PORT  host port for guest SSH   (default 2222)
 #   RAM, CPUS                           (default 1G, 2)
 #   MACHINE   q35 (ICH9 SMBus, default) or pc (PIIX4 SMBus)
+#   SENSORS   tmp105 addresses          (default "0x48 0x49"; "" for none)
 set -u
 MACHINE=${MACHINE:-q35}
 IMAGE=${IMAGE:-$HOME/work/qnx-image}
@@ -30,9 +32,11 @@ QEMU=${QEMU:-$HOME/work/qemu/bin/qemu-system-x86_64}
 SSH_PORT=${SSH_PORT:-2222}
 RAM=${RAM:-1G}
 CPUS=${CPUS:-2}
+SENSORS=${SENSORS-0x48 0x49}
 RUN=$IMAGE/output/bench
 QMP=$RUN/qmp.sock
-SSH_OPTS=(-p "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=5)
+SSH_KEY=${SSH_KEY:-$HOME/.ssh/id_ed25519}
+SSH_OPTS=(-p "$SSH_PORT" -i "$SSH_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=5)
 
 start() {
     [ -f "$IMAGE/output/ifs.bin" ] || { echo "no image in $IMAGE (run mkqnximage first)" >&2; exit 2; }
@@ -50,6 +54,8 @@ start() {
     else
         disk=(-drive file="$IMAGE/output/disk-qemu.vmdk",if=ide)
     fi
+    sensors=() i=0
+    for a in $SENSORS; do sensors+=(-device "tmp105,address=$a,id=temp$i"); i=$((i + 1)); done
     rm -f "$QMP" "$RUN/serial.raw"
     "$QEMU" -machine "$MACHINE" "${accel[@]}" -smp "$CPUS" -m "$RAM" \
         -kernel "$IMAGE/output/ifs.bin" \
@@ -57,7 +63,7 @@ start() {
         -netdev "user,id=net0,hostfwd=tcp:127.0.0.1:$SSH_PORT-:22" \
         -device virtio-net-pci,netdev=net0 \
         -object rng-random,filename=/dev/urandom,id=rng0 -device virtio-rng-pci,rng=rng0 \
-        -device tmp105,address=0x48,id=temp0 \
+        "${sensors[@]}" \
         -qmp "unix:$QMP,server=on,wait=off" \
         -serial "file:$RUN/serial.raw" -display none \
         -pidfile "$RUN/qemu.pid" -daemonize
@@ -76,6 +82,6 @@ case "${1:-}" in
         if [ -f "$RUN/qemu.pid" ]; then kill "$(cat "$RUN/qemu.pid")" 2>/dev/null; rm -f "$RUN/qemu.pid"; fi ;;
     log)   log ;;
     ssh)   shift; ssh "${SSH_OPTS[@]}" root@127.0.0.1 "$@" ;;
-    scp)   shift; scp -P "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$@" ;;
+    scp)   shift; scp -P "$SSH_PORT" -i "$SSH_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$@" ;;
     *)     echo "usage: $0 start|stop|log|ssh [cmd]|scp src root@127.0.0.1:dst" >&2; exit 2 ;;
 esac

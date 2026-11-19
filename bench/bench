@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+#
+# The SMBus sensor bench: QNX 8.0 in QEMU with emulated sensors and EEPROMs
+# on the chipset SMBus, driven from the host.
+#
+#   bench/bench up                 build what's missing, boot, deploy, start the driver
+#   bench/bench down               power the guest off
+#   bench/bench status             what is running, sensor temperatures
+#   bench/bench heat SENSOR C      set a sensor's temperature (0x48 or temp0)
+#   bench/bench scenario FILE      play a temperature script (bench/scenarios/)
+#   bench/bench test [OPTIONS]     on-target tests against the running guest
+#   bench/bench deploy             build and copy every binary to the guest's /tmp
+#   bench/bench driver [OPTIONS]   restart i2c-ichsmb (default options: $DRIVER_OPTS)
+#   bench/bench ssh [COMMAND]      shell or command on the guest, as root
+#   bench/bench log                guest serial console
+#
+# Settings are in bench/config.env. Needs an installed QNX SDP 8.0; up builds
+# QEMU (bench/qemu/build-qemu.sh) and the QNX image if they're missing.
+set -euo pipefail
+HERE=$(cd "$(dirname "$0")" && pwd)
+ROOT=$(cd "$HERE/.." && pwd)
+source "$HERE/config.env"
+RUNQ="$HERE/qemu/run-qnx.sh"
+
+BINARIES=(driver/qnx/i2c-ichsmb tools/smbctl/smbctl tests/target/t_xfer
+          demo/thermd/thermd demo/hog/hog demo/supervisor/smb-supervisor)
+
+say() { printf '\033[1m==> %s\033[0m\n' "$*"; }
+die() { printf 'bench: %s\n' "$*" >&2; exit 1; }
+guest() { bash "$RUNQ" ssh "$@"; }
+
+qnx_env() {
+    if [ -z "${QNX_HOST:-}" ]; then
+        [ -f "$QNX_ENV" ] || die "no QNX SDP at $QNX_ENV (install it, or set QNX_ENV)"
+        # shellcheck disable=SC1090
+        source "$QNX_ENV" >/dev/null
+    fi
+}
+
+need_qemu() {
+    [ -x "$QEMU" ] && return 0
+    say "QEMU with the I2C sensor models is missing; building it (about 10 minutes)"
+    bash "$HERE/qemu/build-qemu.sh"
+}
+
+need_image() {
+    [ -f "$IMAGE/output/ifs.bin" ] && return 0
+    qnx_env
+    if [ ! -f "$SSH_KEY.pub" ]; then
+        say "making an SSH key for the guest: $SSH_KEY"
+        mkdir -p "$(dirname "$SSH_KEY")"
+        ssh-keygen -q -t ed25519 -N "" -f "$SSH_KEY"
+    fi
+    say "building the QNX image in $IMAGE (mkqnximage, a few minutes)"
+    mkdir -p "$IMAGE"
+    [ -z "$(ls -A "$IMAGE")" ] || die "$IMAGE has files but no output/ifs.bin; empty it first"
+    (cd "$IMAGE" && mkqnximage --type=qemu --arch=x86_64 --ssh-ident="$SSH_KEY.pub" --ip=dhcp --noprompt) \
+        > "$IMAGE.mkqnximage.log" 2>&1 || die "mkqnximage failed, see $IMAGE.mkqnximage.log"
+}
+
+wait_ssh() {
+    local i
+    for i in $(seq 90); do
+        guest true 2>/dev/null && return 0
+        sleep 1
+    done
+    bash "$RUNQ" log | tail -20
+    die "the guest didn't answer on SSH within 90 s"
+}
+
+build() {
+    qnx_env
+    make -s -C "$ROOT" qnx >/dev/null
+}
+
+deploy() {
+    build
+    guest 'mkdir -p /tmp/new'
+    bash "$RUNQ" scp "${BINARIES[@]/#/$ROOT/}" root@127.0.0.1:/tmp/new/
+    # A running binary can't be overwritten; stop the users, then move the files in.
+    guest 'for p in smb-supervisor thermd hog i2c-ichsmb; do slay -f $p >/dev/null 2>&1; done
+           for f in /tmp/new/*; do mv -f $f /tmp/; done'
+}
+
+driver() {
+    local opts=${1-$DRIVER_OPTS}
+    guest "slay -f smb-supervisor >/dev/null 2>&1; slay -f i2c-ichsmb >/dev/null 2>&1
+           n=0; while [ -e /dev/i2c0 ] && [ \$n -lt 50 ]; do sleep 0.1; n=\$((n+1)); done
+           /tmp/i2c-ichsmb $opts </dev/null >/tmp/drv.out 2>&1 || { cat /tmp/drv.out; exit 1; }
+           n=0; while [ ! -e /dev/i2c0 ] && [ \$n -lt 50 ]; do sleep 0.1; n=\$((n+1)); done
+           [ -e /dev/i2c0 ]" || die "the driver didn't start"
+    echo "i2c-ichsmb $opts: /dev/i2c0 ready"
+}
+
+status() {
+    local pidf="$IMAGE/output/bench/qemu.pid"
+    if [ -f "$pidf" ] && kill -0 "$(cat "$pidf")" 2>/dev/null; then
+        echo "QEMU      running, machine $MACHINE, pid $(cat "$pidf")"
+    else
+        echo "QEMU      not running"
+        return 0
+    fi
+    if guest true 2>/dev/null; then
+        echo "SSH       root@127.0.0.1 port $SSH_PORT"
+        guest 'pidin -f an | grep -E "i2c-ichsmb|smb-supervisor|thermd|hog" | sed "s/^ */process   /"
+               [ -e /dev/i2c0 ] && echo "device    /dev/i2c0" || echo "device    no /dev/i2c0"'
+    else
+        echo "SSH       not answering (still booting?)"
+    fi
+    [ -n "$SENSORS" ] && python3 "$HERE/qmp.py" get | sed 's/^/sensor    /'
+    return 0
+}
+
+case "${1:-}" in
+    up)
+        need_qemu
+        need_image
+        say "booting QNX on QEMU ($MACHINE)"
+        bash "$RUNQ" start >/dev/null
+        wait_ssh
+        say "building and deploying"
+        deploy
+        say "starting the driver"
+        driver
+        guest /tmp/smbctl scan
+        ;;
+    down)     bash "$RUNQ" stop ;;
+    status)   status ;;
+    heat)     [ $# -eq 3 ] || die "usage: bench heat SENSOR CELSIUS"
+              python3 "$HERE/qmp.py" set "$2" "$3"; python3 "$HERE/qmp.py" get "$2" ;;
+    scenario) [ $# -eq 2 ] || die "usage: bench scenario FILE"
+              python3 "$HERE/qmp.py" scenario "$2" ;;
+    test)     shift; qnx_env
+              rc=0; python3 "$ROOT/tests/run_tests.py" --no-boot --keep --machine "$MACHINE" "$@" || rc=$?
+              driver >/dev/null; exit $rc ;;
+    deploy)   deploy ;;
+    driver)   shift; if [ $# -gt 0 ]; then driver "$*"; else driver; fi ;;
+    ssh)      shift; guest "$@" ;;
+    log)      bash "$RUNQ" log ;;
+    *)        sed -n '4,17p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+esac
