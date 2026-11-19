@@ -209,3 +209,42 @@ No transfer failed in any soak.
 `tests/third_party/fetch_and_run.sh` clones QNX's hardware-component-samples at a fixed commit into a temporary folder, builds `common/rpi_i2c` for x86_64 with its own Makefile, links it with `sample_main.c` and runs it against `/dev/i2c0`. I read the library first: its read and write calls are plain SENDRECV and SEND devctls that map onto Read Byte Data, I2C Block Read, Write Byte Data and block write.
 
 Ran it on q35 with `-i`: all six checks pass (`docs/results/qnx-sample.txt`). The library wrote a byte and an 8-byte block to the EEPROM and read both back, read the sensor, and got an error back from the empty address 0x20. On that last call the library also prints "error with devctl: Input/output error" to stderr itself, which is why that line isn't in the saved file. The sensor reads 0.0 C because nothing set a temperature for this run, and QEMU's TMP105 starts at 0. The check only asks whether the read succeeds; the temperature values are covered by `40-sensor.json`.
+
+## 19 Nov 2026, night: product layer (M3)
+
+### smbctl, the bench
+
+`smbctl` now has `get`, `set`, `getw`, `setw`, `dump`, `watch` and `-j` for JSON, on top of `scan`, `read`, `write`, `recv`, `temp` and `info`. `dump` uses 32-byte I2C block reads and falls back to byte reads when the controller refuses them (PIIX4). `watch` reopens the device if the driver restarts and prints the gap. The client code is in `tools/lib/i2cdev.c`, shared with thermd.
+
+`bench/bench` wraps everything: `up` builds QEMU and the image if they're missing, boots, deploys and starts the driver; `heat` sets a sensor over QMP; `scenario` plays a temperature script; `test` runs the suite against the running guest. The bench now has two TMP105s (0x48, 0x49).
+
+### thermd and hog
+
+`thermd` samples both sensors every 10 ms from a timer pulse, at SCHED_FIFO 30, and switches a "fan" byte in an EEPROM when a sensor crosses 80 C. `hog` spins one pinned thread per processor at priority 20. The first runs looked right: thermd at 30 kept its deadlines under hog, thermd at 10 lost every period while hog ran.
+
+Then I wanted to see the driver thread's priority after the interrupt pulse, because a pulse sets the receiving thread's priority, and the interrupt pulse comes at the attaching thread's priority (10). A probe build that logged it never logged anything: the driver never received a single pulse.
+
+### Interrupt mode was never on
+
+Two separate things, found one after the other:
+
+1. QEMU's model (`hw/i2c/pm_smbus.c`, `smb_transaction_start`) runs the whole transaction inside the START write when interrupts are enabled. With them off it sets HOST_BUSY and runs the transaction at the first status read. So in interrupt mode the driver never waits, and in polling mode it always sleeps once, rounded up to the 1 ms tick. That, not interrupts, was the 204 vs 1498 µs in the M2 numbers. DESIGN.md said otherwise; corrected.
+2. The interrupt number was wrong anyway. The PCI server reported 10, the BIOS's PIC line from config space, because the image's `pci_hw.cfg` has no routing entry for 0:1f.3. QNX runs the I/O APIC, and there QEMU delivers PIRQA on input 16. I attached each candidate and ran one transaction by hand; only 16 fired. (My first scan program unmasked a level-triggered line before clearing the device's status and stormed; cleared first, it was fine.)
+
+Fixes: `-I irq` to give the number; the driver logs "first interrupt received" once, or warns after 20 transactions without one; and it collects a pending pulse without blocking before deciding whether to unmask. Without that last one, a transaction that finished before the first status read left the line masked for good, which on real hardware also blocks any device sharing it.
+
+### Priority inversion in the driver
+
+With interrupts actually arriving, the probe showed it: a thread serving a priority-30 or 50 client was at 10 after the pulse. thermd at 30 with hog at 20 then missed 1501 of 2000 periods and never saw the over-temperature; it sat in `devctl()` while the driver, at 10, waited behind hog (`docs/results/thermd-inversion-before-fix.txt`). Creating the interrupt channel with `_NTO_CHF_FIXED_PRIORITY` keeps the client's priority; the same run then lost no period and switched the fan on 2.1 ms into the period that saw 91 C. The earlier runs had looked fine only because interrupts weren't working.
+
+### Logging was dropped
+
+While looking for the probe's messages I found slog2 had nothing from the driver at all. libi2c-master logs through `vslogf()`, which on QNX 8 reaches slog2 only if the process set a default slog2 buffer. The driver now registers `i2c_ichsmb` at start. M2's DEVLOG and DESIGN.md claimed slog2 logging without my having looked at slog2info; now there's a test that reads it back.
+
+### Supervisor
+
+`smb-supervisor` keeps `/dev/i2c0` open from a channel created with `_NTO_CHF_COID_DISCONNECT`, so the kernel tells it with a `_PULSE_CODE_COIDDEATH` pulse when the driver's channel disappears. It worked the first time: restarts in 4 to 14 ms, thermd lost one or two periods' data per kill and missed no deadline.
+
+### Failure scenarios
+
+New tests: no driver running; a second driver on the same controller (refused by the PCI server, the first keeps serving; its error message used to add a wrong "no I/O base" line, fixed); TMP105 register pointer wrapping (2 bits, like the chip); write to the read-only temperature register; EEPROM address wrap; three kills under the supervisor; boots with one sensor left out and with none. What QEMU can't produce is in `docs/LIMITS.md`.

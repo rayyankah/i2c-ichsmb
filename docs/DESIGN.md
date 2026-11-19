@@ -63,11 +63,21 @@ libi2c-master counts a call as successful only when the driver returns exactly `
 
 After any error the controller is left idle with its status cleared, so the next request works. The tests check this 1000 times in a row in each mode. A transaction that doesn't finish is killed, and so is one where the controller keeps asking for block bytes past the 32-byte limit. QEMU's model does that on 32-byte block writes (see DEVLOG, 19 Nov).
 
-## Interrupt mode (`-i`)
+## Interrupt mode (`-i`, `-I irq`)
 
 The driver attaches the controller's PCI interrupt with `InterruptAttachEvent()`, delivering a pulse to a private channel. While a transaction runs, the core sleeps in `MsgReceivePulse()` with a timeout instead of polling.
 
-The kernel masks the line each time it delivers the event, so the driver has to unmask it. The order matters:
+### Which interrupt
+
+`-i` takes the interrupt number from the PCI server. On QEMU's q35 machine that number is wrong. The PCI server's routing table (`pci_hw.cfg` in the image) has no entry for the SMBus function 0:1f.3, so it reports 10, the legacy PIC line the BIOS wrote into config space. QNX runs the I/O APIC, and QEMU delivers the controller's interrupt (PIRQA) on I/O APIC input 16. I found that by attaching each candidate in turn and running one transaction by hand: only 16 fired.
+
+`-I 16` gives the number directly. On a real system the better fix is a routing entry for the controller in the PCI server's configuration; `-I` is for when that's missing.
+
+Until 19 Nov the driver attached 10 and never got an interrupt, and nothing said so: QEMU's model never made it wait (see below), so every test passed. Now the driver logs "first interrupt received" once, or a warning if 20 transactions go by without one. Both messages are tested (`tests/cases/55-interrupts.json`).
+
+### Masking
+
+The kernel masks the line each time it delivers the event, and the driver unmasks it exactly once per delivery. The order matters:
 
 1. read the status register;
 2. handle the event and clear its status bits, which lowers the line;
@@ -76,17 +86,30 @@ The kernel masks the line each time it delivers the event, so the driver has to 
 
 If the controller raises the line again between steps 1 and 4, the pulse is already queued on the channel and the wait returns at once, so no interrupt is lost. Because the line stays masked until step 3, at most one pulse can be pending. A stale pulse costs one extra status read and nothing more, since the core always re-reads the status register after a wait.
 
-Measured in QEMU with KVM (`docs/results/tests-q35.txt`), 10,000 two-byte reads:
+The event can also be delivered without the driver ever waiting for it, when the transaction is already over at the first status read. QEMU's model does that every time: with interrupts enabled it runs the whole transaction inside the register write that starts it. The pulse then sat on the channel and the line stayed masked from the first transaction on. On real hardware that would also block any other device sharing the line. So before deciding whether to unmask, `q_irq_done()` now collects a pending pulse without blocking.
+
+### Priority
+
+Message passing runs the driver thread at the priority of the client it is serving. But receiving a pulse normally sets the receiving thread to the pulse's priority, and the interrupt pulse arrives at the priority of the thread that attached it, 10. A probe build logged it: a thread serving a priority-30 client was at 10 after the pulse.
+
+Measured with `thermd` at 30 and `hog` spinning at 20 on both processors: the driver, now at 10, got no processor time while `hog` ran. `thermd` sat inside its `devctl()` for 15 seconds, missed 1499 periods and never saw the over-temperature (`docs/results/thermd-inversion-before-fix.txt`).
+
+The interrupt channel is now created with `_NTO_CHF_FIXED_PRIORITY`, so the thread keeps the priority it inherited from the client. Same run after the fix: no period lost, fan on 2.1 ms into the period that saw the temperature. `tests/cases/70-realtime.json` checks this on every run.
+
+### What the timing numbers mean
+
+10,000 two-byte reads in QEMU with KVM (`docs/results/tests-q35.txt`):
 
 | Mode | Time per read | Driver CPU time for the run |
 |---|---|---|
-| polling | 1498 µs | 4.2 s |
-| interrupt | 204 µs | 2.0 s |
+| polling | 1362 µs | 3.6 s |
+| interrupt | 280 µs | 2.9 s |
 
-These are emulator numbers. Each register access is a trap into QEMU, which dominates the time. They show the relative difference, not what real hardware does. Polling is slow here because QNX rounds the 250 µs poll sleep up to its timer tick.
+Both numbers describe QEMU more than hardware. With interrupts enabled, QEMU finishes the transaction inside the START write, so the time is register traps plus one interrupt. With interrupts off, QEMU reports the controller busy until the first status read, so the polling driver always sleeps once, and QNX rounds the 250 µs sleep up to its 1 ms timer tick. On hardware a word read is about half a millisecond of bus time at 100 kHz in either mode; interrupt mode saves the processor time spent polling and the tick rounding.
+
+Block reads in interrupt mode raise one interrupt per byte, so there they cost more than polling in QEMU.
 
 PIIX4 is polling only.
-
 ## Privileges (`-U`)
 
 The driver must start as root to get I/O port access (`ThreadCtl(_NTO_TCTL_IO_LEVEL)`), attach to the PCI device and attach the interrupt. With `-U user`, once that is done `init()`:
@@ -99,8 +122,10 @@ I/O port access stays with the thread that `ThreadCtl()` granted it to. The test
 
 ## Logging
 
-Messages go to slog2 through the library's `i2c_slogf()`, buffer `i2c_ichsmb`. By default only warnings and errors are logged; each `-v` adds a level. During start-up the same messages also go to stderr, so whoever starts the driver sees why it failed. The library logs every failed transfer at error level when its verbosity allows. The driver reports a low verbosity to it unless `-v` is given, so that a bus scan doesn't flood the log with expected NACKs.
+Messages go through the library's `i2c_slogf()`, which calls `vslogf()`. On QNX 8 that reaches slog2 only when the process has set a default slog2 buffer, so `init()` registers a buffer set named `i2c_ichsmb` first. Read it with `slog2info -b i2c_ichsmb`. (Until 19 Nov it didn't, and every message was dropped; I noticed while chasing the interrupt.) By default only warnings and errors are logged; each `-v` adds a level. During start-up the same messages also go to stderr, so whoever starts the driver sees why it failed. The library logs every failed transfer at error level when its verbosity allows. The driver reports a low verbosity to it unless `-v` is given, so that a bus scan doesn't flood the log with expected NACKs.
 
 ## Starting the driver
 
 libi2c-master turns the process into a daemon with `procmgr_daemon(0, PROCMGR_DAEMON_NOCLOSE | PROCMGR_DAEMON_NODEVNULL)`, so standard input, output and error stay open. Started from a startup script that's fine. Started over SSH, give it `</dev/null >/dev/null 2>&1`, or the SSH session stays open.
+
+Stopping the driver with `slay` ends the process without calling its `fini()`, so the closing summary (transactions, errors, interrupts) doesn't get logged then.

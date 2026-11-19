@@ -1,0 +1,32 @@
+thermd run before the priority fix: thermd priority 30, driver options '-i -I 16', hog at 20: yes
+QEMU q35 (emulated time), 2026-11-19; 20 s run, hog for 15 s from 1 s; 0x48 set to 91 C at 6 s, 40 C at 10 s
+
+Driver built without _NTO_CHF_FIXED_PRIORITY on its interrupt channel (remove the
+flag in ichsmb_init() in driver/qnx/i2c-ichsmb.c to reproduce). The driver thread
+dropped to priority 10 on each interrupt pulse, hog at 20 starved it, and thermd
+sat blocked in its devctl() for the whole hog run. The over-temperature was never seen.
+
+Priority of the driver thread before and after receiving the pulse (probe build):
+pulse: prio before 30 after 10
+pulse: prio before 50 after 10
+pulse: prio before 10 after 10
+
+thermd: 2 sensor(s) every 10000 us, deadline 10000 us, threshold 80.0 C, priority 30 FIFO
+
+thermd report: 2000 periods of 10000 us (20.0 s), SCHED_FIFO priority 30, 2 sensor(s)
+                         min    median    99th %       max   (microseconds)
+wake-up lateness         226       623      1141  14991040
+response time            961      1859      4620  15000971
+deadline 10000 us: 1501 missed, of which 1499 periods had no wake-up at all
+fan switched 0 time(s), worst reaction 0 us after the period started
+failed reads 0, driver gaps 0
+RESULT periods=2000 missed=1501 skipped=1499 late_p99_us=1141 late_max_us=14991040 resp_p99_us=4620 resp_max_us=15000971 failed_reads=0 gaps=0 prio=30
+
+Same run with the flag (the committed driver), from the same session:
+pulse: prio before 30 after 30
+pulse: prio before 5 after 5
+     6.040 s  0x48 at 91.0 C, over 80.0 C
+     6.040 s  fan ON , 2147 us after the period started
+    10.150 s  0x48 at 40.0 C, back under 75.0 C
+    10.150 s  fan off, 1468 us after the period started
+RESULT periods=2000 missed=1 skipped=0 late_p99_us=1018 late_max_us=5922 resp_p99_us=3542 resp_max_us=11453 failed_reads=0 gaps=0 prio=30
