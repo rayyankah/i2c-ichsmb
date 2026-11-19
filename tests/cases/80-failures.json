@@ -12,10 +12,11 @@
   "name": "failure: a second copy of the driver refuses to start, the first keeps serving",
   "mode": "irq",
   "qmp": [{"temp": 25000}],
-  "shell": "/tmp/i2c-ichsmb -I 16 </dev/null 2>&1; echo rc=$?; /tmp/smbctl temp 0x48",
+  "shell": "/tmp/i2c-ichsmb -I 16 </dev/null >/tmp/d2.out 2>&1; echo rc=$?; cat /tmp/d2.out; pidin -f an | grep -c i2c-ichsmb; /tmp/smbctl temp 0x48",
   "expect": [
-   "i2c-ichsmb: pci_device_attach: Request For Ownership Of An Already Owned Device.*",
    "rc=1",
+   "i2c-ichsmb: pci_device_attach: Request For Ownership Of An Already Owned Device.*",
+   "1",
    "25\\.0000 C \\(raw 0x1900\\)"
   ]
  },

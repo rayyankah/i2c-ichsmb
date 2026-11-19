@@ -326,13 +326,19 @@ static int setup_piix4(ichsmb_t *h)
 
     pci_device_cfg_rd32(h->bdf, PIIX4_CFG_SMBBA, &base);
     h->iobase = base & 0xFFF0u;
+    /*
+     * Always attach, even when firmware already enabled the host: the
+     * attach is what claims the controller, so a second driver started on
+     * it is refused. Until 19 Nov this only happened when HST_EN was clear,
+     * and on QEMU's pc machine two drivers could run on one controller.
+     */
+    h->pci = pci_device_attach(h->bdf, pci_attachFlags_DEFAULT, &err);
+    if (h->pci == NULL) {
+        logmsg(h, _SLOG_ERROR, "pci_device_attach: %s", pci_strerror(err));
+        return -1;
+    }
     pci_device_cfg_rd8(h->bdf, PIIX4_CFG_SMBHSTCFG, &cfg);
     if (!(cfg & PIIX4_HSTCFG_HST_EN)) {
-        h->pci = pci_device_attach(h->bdf, pci_attachFlags_DEFAULT, &err);
-        if (h->pci == NULL) {
-            logmsg(h, _SLOG_ERROR, "pci_device_attach: %s", pci_strerror(err));
-            return -1;
-        }
         pci_device_cfg_wr8(h->pci, PIIX4_CFG_SMBHSTCFG, (uint8_t)(cfg | PIIX4_HSTCFG_HST_EN), NULL);
     }
     h->dev.caps = 0;            /* quick, byte, byte data and word data only (see DEVLOG, 14 Nov) */
