@@ -1,0 +1,140 @@
+[
+ {
+  "name": "irq: register write and read back",
+  "mode": "irq",
+  "ops": [
+   "send:0x54:0aa5",
+   "sendrecv:0x54:0a:1"
+  ],
+  "expect": [
+   "OK",
+   "OK a5"
+  ]
+ },
+ {
+  "name": "irq: block write and read back",
+  "mode": "irq",
+  "ops": [
+   "send:0x54:10cafe0102",
+   "sendrecv:0x54:10:4"
+  ],
+  "expect": [
+   "OK",
+   "OK ca fe 01 02"
+  ],
+  "expect_pc": [
+   "ERR EIO ERROR",
+   "ERR EIO ERROR"
+  ]
+ },
+ {
+  "name": "irq: NACK then success",
+  "mode": "irq",
+  "ops": [
+   "recover:1000:0x20:0x54:0a:1"
+  ],
+  "expect": [
+   "OK n=1000"
+  ]
+ },
+ {
+  "name": "irq: sensor",
+  "mode": "irq",
+  "qmp": [
+   {
+    "temp": 55000
+   }
+  ],
+  "ops": [
+   "sendrecv:0x48:00:2"
+  ],
+  "expect": [
+   "OK 37 00"
+  ]
+ },
+ {
+  "name": "user: register write and read back",
+  "mode": "user",
+  "ops": [
+   "send:0x54:0aa5",
+   "sendrecv:0x54:0a:1"
+  ],
+  "expect": [
+   "OK",
+   "OK a5"
+  ]
+ },
+ {
+  "name": "user: block write and read back",
+  "mode": "user",
+  "ops": [
+   "send:0x54:10cafe0102",
+   "sendrecv:0x54:10:4"
+  ],
+  "expect": [
+   "OK",
+   "OK ca fe 01 02"
+  ],
+  "expect_pc": [
+   "ERR EIO ERROR",
+   "ERR EIO ERROR"
+  ]
+ },
+ {
+  "name": "user: NACK then success",
+  "mode": "user",
+  "ops": [
+   "recover:1000:0x20:0x54:0a:1"
+  ],
+  "expect": [
+   "OK n=1000"
+  ]
+ },
+ {
+  "name": "user: sensor",
+  "mode": "user",
+  "qmp": [
+   {
+    "temp": 55000
+   }
+  ],
+  "ops": [
+   "sendrecv:0x48:00:2"
+  ],
+  "expect": [
+   "OK 37 00"
+  ]
+ },
+ {
+  "name": "user: driver runs as uid 1000 after -U qnxuser",
+  "mode": "user",
+  "shell": "pidin -p i2c-ichsmb user | tail -1",
+  "expect": [
+   "\\s*\\d+ \\S*i2c-ichsmb\\s+1000\\s+1000\\s+1000\\s+1000.*"
+  ]
+ },
+ {
+  "name": "user: started without root it stops with a clear message",
+  "mode": "none",
+  "shell": "on -u qnxuser /tmp/i2c-ichsmb </dev/null 2>&1; echo rc=$?",
+  "expect": [
+   "i2c-ichsmb: no I/O privilege .*start as root, then use -U.*",
+   "rc=1"
+  ]
+ },
+ {
+  "name": "smbus: SMBus block write and read (count byte)",
+  "mode": "smbus",
+  "machines": [
+   "q35"
+  ],
+  "ops": [
+   "send:0x55:6004a1a2a3a4",
+   "sendrecv:0x55:60:5"
+  ],
+  "expect": [
+   "OK",
+   "OK 04 a1 a2 a3 a4"
+  ]
+ }
+]

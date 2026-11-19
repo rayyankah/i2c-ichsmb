@@ -1,0 +1,127 @@
+[
+ {
+  "name": "driver info: 7-bit, standard speed, force-stop",
+  "ops": [
+   "info"
+  ],
+  "expect": [
+   "OK speed=1 addr=2 caps=1"
+  ]
+ },
+ {
+  "name": "scan finds the sensor and 8 EEPROMs",
+  "shell": "/tmp/smbctl scan | tail -1",
+  "expect": [
+   "9 device\\(s\\)"
+  ]
+ },
+ {
+  "name": "Write Byte Data, Read Byte Data",
+  "ops": [
+   "send:0x50:0011",
+   "sendrecv:0x50:00:1"
+  ],
+  "expect": [
+   "OK",
+   "OK 11"
+  ]
+ },
+ {
+  "name": "Write Word Data, Read Word Data",
+  "ops": [
+   "send:0x50:023412",
+   "sendrecv:0x50:02:2"
+  ],
+  "expect": [
+   "OK",
+   "OK 34 12"
+  ]
+ },
+ {
+  "name": "Send Byte sets the pointer, Receive Byte reads it",
+  "ops": [
+   "send:0x51:20ab",
+   "send:0x51:20",
+   "recv:0x51:1"
+  ],
+  "expect": [
+   "OK",
+   "OK",
+   "OK ab"
+  ]
+ },
+ {
+  "name": "block write 4 bytes, I2C block read 4",
+  "ops": [
+   "send:0x50:10deadbeef",
+   "sendrecv:0x50:10:4"
+  ],
+  "expect": [
+   "OK",
+   "OK de ad be ef"
+  ],
+  "expect_pc": [
+   "ERR EIO ERROR",
+   "ERR EIO ERROR"
+  ]
+ },
+ {
+  "name": "block write 31 bytes, I2C block read 31",
+  "ops": [
+   "send:0x52:40000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e",
+   "sendrecv:0x52:40:31"
+  ],
+  "expect": [
+   "OK",
+   "OK 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e"
+  ],
+  "expect_pc": [
+   "ERR EIO ERROR",
+   "ERR EIO ERROR"
+  ]
+ },
+ {
+  "name": "I2C block read 32 matches byte reads",
+  "ops": [
+   "sendrecv:0x52:40:32",
+   "sendrecv:0x52:5e:1",
+   "sendrecv:0x52:5f:1"
+  ],
+  "expect": [
+   "OK 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 00",
+   "OK 1e",
+   "OK 00"
+  ],
+  "expect_pc": [
+   "ERR EIO ERROR",
+   "OK 00",
+   "OK 00"
+  ],
+  "note": "on PIIX4 the 31-byte write above is refused, so nothing was stored"
+ },
+ {
+  "name": "I2C block read 3 (shortest block read)",
+  "ops": [
+   "sendrecv:0x52:41:3"
+  ],
+  "expect": [
+   "OK 01 02 03"
+  ],
+  "expect_pc": [
+   "ERR EIO ERROR"
+  ]
+ },
+ {
+  "name": "32-byte block write: QEMU model bug gives a clean error",
+  "ops": [
+   "send:0x53:60000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+  ],
+  "expect": [
+   "ERR EIO ERROR"
+  ],
+  "machines": [
+   "q35"
+  ],
+  "note": "QEMU pm_smbus wraps its index at 32; real hardware accepts it"
+ }
+]

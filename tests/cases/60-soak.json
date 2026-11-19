@@ -1,0 +1,52 @@
+[
+ {
+  "name": "soak poll: 10000 word reads",
+  "mode": "poll",
+  "restart": true,
+  "show": true,
+  "shell": "/tmp/t_xfer soak:10000:0x50:02:2; pidin -p i2c-ichsmb times | tail -1",
+  "expect": [
+   "OK n=10000 us=\\d+",
+   ".*i2c-ichsmb.*"
+  ]
+ },
+ {
+  "name": "soak poll: 2000 x 32-byte block reads",
+  "mode": "poll",
+  "machines": [
+   "q35"
+  ],
+  "show": true,
+  "ops": [
+   "soak:2000:0x52:40:32"
+  ],
+  "expect": [
+   "OK n=2000 us=\\d+"
+  ]
+ },
+ {
+  "name": "soak irq: 10000 word reads",
+  "mode": "irq",
+  "restart": true,
+  "show": true,
+  "shell": "/tmp/t_xfer soak:10000:0x50:02:2; pidin -p i2c-ichsmb times | tail -1",
+  "expect": [
+   "OK n=10000 us=\\d+",
+   ".*i2c-ichsmb.*"
+  ]
+ },
+ {
+  "name": "soak irq: 2000 x 32-byte block reads",
+  "mode": "irq",
+  "machines": [
+   "q35"
+  ],
+  "show": true,
+  "ops": [
+   "soak:2000:0x52:40:32"
+  ],
+  "expect": [
+   "OK n=2000 us=\\d+"
+  ]
+ }
+]

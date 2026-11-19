@@ -13,3 +13,5 @@ output/
 local/
 qnx-image/
 tools/smbctl/smbctl
+tests/target/t_xfer
+tests/third_party/qnx_sample

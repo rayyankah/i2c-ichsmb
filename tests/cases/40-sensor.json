@@ -1,0 +1,79 @@
+[
+ {
+  "name": "sensor: power-up value 0 C",
+  "ops": [
+   "sendrecv:0x48:00:2"
+  ],
+  "expect": [
+   "OK 00 00"
+  ]
+ },
+ {
+  "name": "sensor: host sets 25 C",
+  "qmp": [
+   {
+    "temp": 25000
+   }
+  ],
+  "ops": [
+   "sendrecv:0x48:00:2"
+  ],
+  "expect": [
+   "OK 19 00"
+  ]
+ },
+ {
+  "name": "sensor: host sets -10.5 C",
+  "qmp": [
+   {
+    "temp": -10500
+   }
+  ],
+  "ops": [
+   "sendrecv:0x48:00:2"
+  ],
+  "expect": [
+   "OK f5 80"
+  ]
+ },
+ {
+  "name": "sensor: host sets 100 C",
+  "qmp": [
+   {
+    "temp": 100000
+   }
+  ],
+  "ops": [
+   "sendrecv:0x48:00:2"
+  ],
+  "expect": [
+   "OK 64 00"
+  ]
+ },
+ {
+  "name": "sensor: 30.25 C reads 30.0 (9-bit default)",
+  "qmp": [
+   {
+    "temp": 30250
+   }
+  ],
+  "ops": [
+   "sendrecv:0x48:00:2"
+  ],
+  "expect": [
+   "OK 1e 00"
+  ]
+ },
+ {
+  "name": "smbctl temp",
+  "qmp": [
+   {
+    "temp": 42500
+   }
+  ],
+  "shell": "/tmp/smbctl temp 0x48",
+  "expect": [
+   "42\\.5000 C \\(raw 0x2a80\\)"
+  ]
+ }
+]

@@ -1,0 +1,82 @@
+[
+ {
+  "name": "NACK: write to an empty address",
+  "ops": [
+   "send:0x20:00"
+  ],
+  "expect": [
+   "ERR EIO NACK"
+  ]
+ },
+ {
+  "name": "NACK: read from an empty address",
+  "ops": [
+   "recv:0x20:1"
+  ],
+  "expect": [
+   "ERR EIO NACK"
+  ]
+ },
+ {
+  "name": "NACK: register read from an empty address",
+  "ops": [
+   "sendrecv:0x20:00:2"
+  ],
+  "expect": [
+   "ERR EIO NACK"
+  ]
+ },
+ {
+  "name": "NACK then success on the same connection",
+  "ops": [
+   "recv:0x20:1",
+   "sendrecv:0x50:00:1"
+  ],
+  "expect": [
+   "ERR EIO NACK",
+   "OK 11"
+  ]
+ },
+ {
+  "name": "bus reset, then a normal read",
+  "ops": [
+   "reset",
+   "sendrecv:0x50:02:2"
+  ],
+  "expect": [
+   "OK",
+   "OK 34 12"
+  ]
+ },
+ {
+  "name": "bus speed 100 kHz accepted",
+  "ops": [
+   "speed:100000",
+   "sendrecv:0x50:00:1"
+  ],
+  "expect": [
+   "OK",
+   "OK 11"
+  ]
+ },
+ {
+  "name": "bus speed 400 kHz refused at the next transfer",
+  "ops": [
+   "speed:400000",
+   "sendrecv:0x50:00:1"
+  ],
+  "expect": [
+   "OK",
+   "ERR EIO"
+  ]
+ },
+ {
+  "name": "1000 x (failed read, good read)",
+  "ops": [
+   "recover:1000:0x20:0x50:00:1"
+  ],
+  "expect": [
+   "OK n=1000"
+  ]
+ }
+]

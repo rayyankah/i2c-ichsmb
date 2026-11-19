@@ -1,0 +1,67 @@
+[
+ {
+  "name": "refused: write of 35 bytes",
+  "ops": [
+   "send:0x50:7000000000000000000000000000000000000000000000000000000000000000000000"
+  ],
+  "expect": [
+   "ERR EIO ERROR"
+  ]
+ },
+ {
+  "name": "refused: read of 33 after a register byte",
+  "ops": [
+   "sendrecv:0x50:00:33"
+  ],
+  "expect": [
+   "ERR EIO ERROR"
+  ]
+ },
+ {
+  "name": "refused: two-byte register address",
+  "ops": [
+   "sendrecv:0x50:0000:1"
+  ],
+  "expect": [
+   "ERR EIO ERROR"
+  ]
+ },
+ {
+  "name": "refused: 2-byte read with no register byte",
+  "ops": [
+   "recv:0x50:2"
+  ],
+  "expect": [
+   "ERR EIO ERROR"
+  ]
+ },
+ {
+  "name": "refused: 10-bit address",
+  "ops": [
+   "send10:0x50:00"
+  ],
+  "expect": [
+   "ERR E\\w+.*"
+  ]
+ },
+ {
+  "name": "refused: write without stop (library, force-stop)",
+  "ops": [
+   "sendns:0x50:10"
+  ],
+  "expect": [
+   "ERR ENOTSUP"
+  ]
+ },
+ {
+  "name": "zero-length write never reaches the driver (library)",
+  "ops": [
+   "send:0x20:-",
+   "send:0x50:-"
+  ],
+  "expect": [
+   "OK",
+   "OK"
+  ]
+ }
+]
