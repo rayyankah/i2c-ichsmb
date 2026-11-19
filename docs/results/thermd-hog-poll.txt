@@ -1,0 +1,79 @@
+thermd run 'hog-poll': thermd priority 30, driver options '', hog at 20: yes
+QEMU q35 (emulated time), 2026-11-19 17:03; 0x48 set to 91 C at 20 s, 40 C at 40 s
+
+thermd: 2 sensor(s) every 10000 us, deadline 10000 us, threshold 80.0 C, priority 30 FIFO
+     0.000 s  0x48  40.00 C 0x49  40.00 C  fan off
+     1.010 s  0x48  40.00 C 0x49  40.00 C  fan off
+     2.020 s  0x48  40.00 C 0x49  40.00 C  fan off
+     3.020 s  0x48  40.00 C 0x49  40.00 C  fan off
+     4.020 s  0x48  40.00 C 0x49  40.00 C  fan off
+     5.020 s  0x48  40.00 C 0x49  40.00 C  fan off
+     6.030 s  0x48  40.00 C 0x49  40.00 C  fan off
+     7.030 s  0x48  40.00 C 0x49  40.00 C  fan off
+     8.040 s  0x48  40.00 C 0x49  40.00 C  fan off
+     9.050 s  0x48  40.00 C 0x49  40.00 C  fan off
+    10.050 s  0x48  40.00 C 0x49  40.00 C  fan off
+    11.060 s  0x48  40.00 C 0x49  40.00 C  fan off
+    12.070 s  0x48  40.00 C 0x49  40.00 C  fan off
+    13.070 s  0x48  40.00 C 0x49  40.00 C  fan off
+    14.070 s  0x48  40.00 C 0x49  40.00 C  fan off
+    15.080 s  0x48  40.00 C 0x49  40.00 C  fan off
+    16.090 s  0x48  40.00 C 0x49  40.00 C  fan off
+    17.090 s  0x48  40.00 C 0x49  40.00 C  fan off
+    18.090 s  0x48  40.00 C 0x49  40.00 C  fan off
+    19.100 s  0x48  40.00 C 0x49  40.00 C  fan off
+    20.050 s  0x48 at 91.0 C, over 80.0 C
+    20.050 s  fan ON , 4142 us after the period started
+    20.100 s  0x48  91.00 C 0x49  40.00 C  fan ON
+    21.100 s  0x48  91.00 C 0x49  40.00 C  fan ON
+    22.110 s  0x48  91.00 C 0x49  40.00 C  fan ON
+    23.120 s  0x48  91.00 C 0x49  40.00 C  fan ON
+    24.120 s  0x48  91.00 C 0x49  40.00 C  fan ON
+    25.130 s  0x48  91.00 C 0x49  40.00 C  fan ON
+    26.130 s  0x48  91.00 C 0x49  40.00 C  fan ON
+    27.130 s  0x48  91.00 C 0x49  40.00 C  fan ON
+    28.140 s  0x48  91.00 C 0x49  40.00 C  fan ON
+    29.140 s  0x48  91.00 C 0x49  40.00 C  fan ON
+    30.150 s  0x48  91.00 C 0x49  40.00 C  fan ON
+    31.160 s  0x48  91.00 C 0x49  40.00 C  fan ON
+    32.160 s  0x48  91.00 C 0x49  40.00 C  fan ON
+    33.160 s  0x48  91.00 C 0x49  40.00 C  fan ON
+    34.160 s  0x48  91.00 C 0x49  40.00 C  fan ON
+    35.170 s  0x48  91.00 C 0x49  40.00 C  fan ON
+    36.180 s  0x48  91.00 C 0x49  40.00 C  fan ON
+    37.180 s  0x48  91.00 C 0x49  40.00 C  fan ON
+    38.190 s  0x48  91.00 C 0x49  40.00 C  fan ON
+    39.190 s  0x48  91.00 C 0x49  40.00 C  fan ON
+    40.160 s  0x48 at 40.0 C, back under 75.0 C
+    40.160 s  fan off, 3114 us after the period started
+    40.190 s  0x48  40.00 C 0x49  40.00 C  fan off
+    41.200 s  0x48  40.00 C 0x49  40.00 C  fan off
+    42.210 s  0x48  40.00 C 0x49  40.00 C  fan off
+    43.210 s  0x48  40.00 C 0x49  40.00 C  fan off
+    44.210 s  0x48  40.00 C 0x49  40.00 C  fan off
+    45.210 s  0x48  40.00 C 0x49  40.00 C  fan off
+    46.220 s  0x48  40.00 C 0x49  40.00 C  fan off
+    47.230 s  0x48  40.00 C 0x49  40.00 C  fan off
+    48.240 s  0x48  40.00 C 0x49  40.00 C  fan off
+    49.250 s  0x48  40.00 C 0x49  40.00 C  fan off
+    50.250 s  0x48  40.00 C 0x49  40.00 C  fan off
+    51.260 s  0x48  40.00 C 0x49  40.00 C  fan off
+    52.260 s  0x48  40.00 C 0x49  40.00 C  fan off
+    53.260 s  0x48  40.00 C 0x49  40.00 C  fan off
+    54.270 s  0x48  40.00 C 0x49  40.00 C  fan off
+    55.280 s  0x48  40.00 C 0x49  40.00 C  fan off
+    56.290 s  0x48  40.00 C 0x49  40.00 C  fan off
+    57.300 s  0x48  40.00 C 0x49  40.00 C  fan off
+    58.300 s  0x48  40.00 C 0x49  40.00 C  fan off
+    59.300 s  0x48  40.00 C 0x49  40.00 C  fan off
+
+thermd report: 6000 periods of 10000 us (60.0 s), SCHED_FIFO priority 30, 2 sensor(s)
+                         min    median    99th %       max   (microseconds)
+wake-up lateness          45        80       733      9601
+response time           2099      2144      4988     15585
+deadline 10000 us: 8 missed, of which 0 periods had no wake-up at all
+fan switched 2 time(s), worst reaction 4142 us after the period started
+failed reads 0, driver gaps 0
+RESULT periods=6000 missed=8 skipped=0 late_p99_us=733 late_max_us=9601 resp_p99_us=4988 resp_max_us=15585 failed_reads=0 gaps=0 prio=30
+hog: 2 thread(s) at priority 20 FIFO for 58 s
+hog: done

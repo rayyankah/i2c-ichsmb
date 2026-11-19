@@ -1,0 +1,95 @@
+smb-supervisor recovery: 20 x kill -9 of i2c-ichsmb -I 16, one every 2 s, thermd running
+QEMU q35 (emulated time), 2026-11-19 17:08
+
+11:07:33 smb-supervisor: /tmp/i2c-ichsmb started, watching /dev/i2c0
+11:07:35 smb-supervisor: driver for /dev/i2c0 died, restarting it
+11:07:35 smb-supervisor: /dev/i2c0 serving again, 6 ms after the driver died (restart 1)
+11:07:37 smb-supervisor: driver for /dev/i2c0 died, restarting it
+11:07:37 smb-supervisor: /dev/i2c0 serving again, 7 ms after the driver died (restart 2)
+11:07:39 smb-supervisor: driver for /dev/i2c0 died, restarting it
+11:07:39 smb-supervisor: /dev/i2c0 serving again, 6 ms after the driver died (restart 3)
+11:07:41 smb-supervisor: driver for /dev/i2c0 died, restarting it
+11:07:41 smb-supervisor: /dev/i2c0 serving again, 5 ms after the driver died (restart 4)
+11:07:43 smb-supervisor: driver for /dev/i2c0 died, restarting it
+11:07:43 smb-supervisor: /dev/i2c0 serving again, 8 ms after the driver died (restart 5)
+11:07:45 smb-supervisor: driver for /dev/i2c0 died, restarting it
+11:07:45 smb-supervisor: /dev/i2c0 serving again, 6 ms after the driver died (restart 6)
+11:07:47 smb-supervisor: driver for /dev/i2c0 died, restarting it
+11:07:47 smb-supervisor: /dev/i2c0 serving again, 4 ms after the driver died (restart 7)
+11:07:49 smb-supervisor: driver for /dev/i2c0 died, restarting it
+11:07:49 smb-supervisor: /dev/i2c0 serving again, 4 ms after the driver died (restart 8)
+11:07:51 smb-supervisor: driver for /dev/i2c0 died, restarting it
+11:07:51 smb-supervisor: /dev/i2c0 serving again, 5 ms after the driver died (restart 9)
+11:07:53 smb-supervisor: driver for /dev/i2c0 died, restarting it
+11:07:53 smb-supervisor: /dev/i2c0 serving again, 4 ms after the driver died (restart 10)
+11:07:55 smb-supervisor: driver for /dev/i2c0 died, restarting it
+11:07:55 smb-supervisor: /dev/i2c0 serving again, 5 ms after the driver died (restart 11)
+11:07:57 smb-supervisor: driver for /dev/i2c0 died, restarting it
+11:07:57 smb-supervisor: /dev/i2c0 serving again, 4 ms after the driver died (restart 12)
+11:07:59 smb-supervisor: driver for /dev/i2c0 died, restarting it
+11:07:59 smb-supervisor: /dev/i2c0 serving again, 5 ms after the driver died (restart 13)
+11:08:01 smb-supervisor: driver for /dev/i2c0 died, restarting it
+11:08:01 smb-supervisor: /dev/i2c0 serving again, 5 ms after the driver died (restart 14)
+11:08:03 smb-supervisor: driver for /dev/i2c0 died, restarting it
+11:08:03 smb-supervisor: /dev/i2c0 serving again, 4 ms after the driver died (restart 15)
+11:08:05 smb-supervisor: driver for /dev/i2c0 died, restarting it
+11:08:05 smb-supervisor: /dev/i2c0 serving again, 5 ms after the driver died (restart 16)
+11:08:07 smb-supervisor: driver for /dev/i2c0 died, restarting it
+11:08:07 smb-supervisor: /dev/i2c0 serving again, 6 ms after the driver died (restart 17)
+11:08:09 smb-supervisor: driver for /dev/i2c0 died, restarting it
+11:08:09 smb-supervisor: /dev/i2c0 serving again, 5 ms after the driver died (restart 18)
+11:08:11 smb-supervisor: driver for /dev/i2c0 died, restarting it
+11:08:11 smb-supervisor: /dev/i2c0 serving again, 8 ms after the driver died (restart 19)
+11:08:13 smb-supervisor: driver for /dev/i2c0 died, restarting it
+11:08:13 smb-supervisor: /dev/i2c0 serving again, 4 ms after the driver died (restart 20)
+
+thermd: 2 sensor(s) every 10000 us, deadline 10000 us, threshold 80.0 C, priority 30 FIFO
+     2.000 s  driver gone, reopening /dev/i2c0
+     2.010 s  driver back, 20 ms without data
+     4.020 s  driver gone, reopening /dev/i2c0
+     4.030 s  driver back, 20 ms without data
+     6.040 s  driver gone, reopening /dev/i2c0
+     6.050 s  driver back, 20 ms without data
+     8.060 s  driver gone, reopening /dev/i2c0
+     8.071 s  driver back, 20 ms without data
+    10.070 s  driver gone, reopening /dev/i2c0
+    10.080 s  driver back, 20 ms without data
+    12.090 s  driver gone, reopening /dev/i2c0
+    12.101 s  driver back, 20 ms without data
+    14.100 s  driver gone, reopening /dev/i2c0
+    14.110 s  driver back, 20 ms without data
+    16.110 s  driver gone, reopening /dev/i2c0
+    16.121 s  driver back, 20 ms without data
+    18.120 s  driver gone, reopening /dev/i2c0
+    18.131 s  driver back, 20 ms without data
+    20.130 s  driver gone, reopening /dev/i2c0
+    20.140 s  driver back, 20 ms without data
+    22.150 s  driver gone, reopening /dev/i2c0
+    22.160 s  driver back, 20 ms without data
+    24.161 s  driver gone, reopening /dev/i2c0
+    24.171 s  driver back, 20 ms without data
+    26.170 s  driver gone, reopening /dev/i2c0
+    26.181 s  driver back, 20 ms without data
+    28.190 s  driver gone, reopening /dev/i2c0
+    28.200 s  driver back, 20 ms without data
+    30.200 s  driver gone, reopening /dev/i2c0
+    30.210 s  driver back, 20 ms without data
+    32.211 s  driver gone, reopening /dev/i2c0
+    32.220 s  driver back, 20 ms without data
+    34.220 s  driver gone, reopening /dev/i2c0
+    34.231 s  driver back, 20 ms without data
+    36.240 s  driver gone, reopening /dev/i2c0
+    36.251 s  driver back, 20 ms without data
+    38.260 s  driver gone, reopening /dev/i2c0
+    38.271 s  driver back, 20 ms without data
+    40.270 s  driver gone, reopening /dev/i2c0
+    40.280 s  driver back, 20 ms without data
+
+thermd report: 4400 periods of 10000 us (44.0 s), SCHED_FIFO priority 30, 2 sensor(s)
+                         min    median    99th %       max   (microseconds)
+wake-up lateness          91       506      1178      2059
+response time            128      1721      4360      6826
+deadline 10000 us: 0 missed, of which 0 periods had no wake-up at all
+fan switched 0 time(s), worst reaction 0 us after the period started
+failed reads 20, driver gaps 20 (ms without data:20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20)
+RESULT periods=4400 missed=0 skipped=0 late_p99_us=1178 late_max_us=2059 resp_p99_us=4360 resp_max_us=6826 failed_reads=20 gaps=20 prio=30

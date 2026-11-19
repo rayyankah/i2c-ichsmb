@@ -1,0 +1,13 @@
+thermd run 'host-load': thermd priority 30, driver options '-I 16', hog at 20: host (no hog; two busy loops on the host)
+QEMU q35 (emulated time), 2026-11-19 17:06; no temperature change in this run (recorded by hand before measure.sh had this run)
+
+thermd: 2 sensor(s) every 10000 us, deadline 10000 us, threshold 80.0 C, priority 30 FIFO
+
+thermd report: 6000 periods of 10000 us (60.0 s), SCHED_FIFO priority 30, 2 sensor(s)
+                         min    median    99th %       max   (microseconds)
+wake-up lateness         102       268       634      4835
+response time            614      1194      2580     14825
+deadline 10000 us: 2 missed, of which 0 periods had no wake-up at all
+fan switched 0 time(s), worst reaction 0 us after the period started
+failed reads 0, driver gaps 0
+RESULT periods=6000 missed=2 skipped=0 late_p99_us=634 late_max_us=4835 resp_p99_us=2580 resp_max_us=14825 failed_reads=0 gaps=0 prio=30

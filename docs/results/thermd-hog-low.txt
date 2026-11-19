@@ -1,0 +1,18 @@
+thermd run 'hog-low': thermd priority 10, driver options '-I 16', hog at 20: yes
+QEMU q35 (emulated time), 2026-11-19 17:04; 0x48 set to 91 C at 20 s, 40 C at 40 s
+
+thermd: 2 sensor(s) every 10000 us, deadline 10000 us, threshold 80.0 C, priority 10 FIFO
+     0.000 s  0x48  40.00 C 0x49  40.00 C  fan off
+     0.990 s  0x48  40.00 C 0x49  40.00 C  fan off
+    59.990 s  0x48  40.00 C 0x49  40.00 C  fan off
+
+thermd report: 6000 periods of 10000 us (60.0 s), SCHED_FIFO priority 10, 2 sensor(s)
+                         min    median    99th %       max   (microseconds)
+wake-up lateness         143       467      1184  57994388
+response time            740      1496      3704  57995920
+deadline 10000 us: 5800 missed, of which 5799 periods had no wake-up at all
+fan switched 0 time(s), worst reaction 0 us after the period started
+failed reads 0, driver gaps 0
+RESULT periods=6000 missed=5800 skipped=5799 late_p99_us=1184 late_max_us=57994388 resp_p99_us=3704 resp_max_us=57995920 failed_reads=0 gaps=0 prio=10
+hog: 2 thread(s) at priority 20 FIFO for 58 s
+hog: done
