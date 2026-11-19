@@ -1,0 +1,14 @@
+# build outputs
+*.o
+*.exe
+*.EFI
+build/
+tests/host/test_core
+driver/qnx/i2c-ichsmb
+# QNX images and anything from the QNX kit must never be committed
+*.img
+*.ifs
+*.qcow2
+output/
+local/
+qnx-image/
