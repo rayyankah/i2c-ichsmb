@@ -51,7 +51,7 @@ w("10,000 two-byte reads, then 2,000 32-byte block reads, from `tests-q35.txt`. 
 t = read("tests-q35.txt")
 rows = re.findall(r"PASS  soak (\w+): (\d+) (?:x )?([\w -]+?)\s+\[\w+\]\n\s+OK n=\d+ us=(\d+)(?:\n\s+\d+ \S+\s+\d+ \w+ \d+ [\d:]+\s+([\d.]+))?", t)
 if rows:
-    w("| Mode | Transfer | Time per transfer | Driver CPU for the 10,000 reads |\n|---|---|---|---|")
+    w("| Mode | Transfer | Time per transfer | Driver CPU (word-read run) |\n|---|---|---|---|")
     for mode, n, what, us, cpu in rows:
         w(f"| {'polling' if mode == 'poll' else 'interrupt'} | {what.strip()} | {us} µs | {cpu + ' s' if cpu else ''} |")
 w("")
@@ -64,17 +64,23 @@ w("| Run | thermd priority | Periods | Missed | No wake-up | Lateness p99 / max 
 w("|---|---|---|---|---|---|---|---|---|")
 runs = [("baseline", "no load, interrupt mode"), ("hog-irq", "hog at 20, interrupt mode"),
         ("hog-poll", "hog at 20, polling mode"), ("hog-low", "hog at 20, thermd below it"),
+        ("host-load", "no load in QNX, two busy loops on the host"),
         ("inversion-before-fix", "hog at 20, driver before the priority fix (20 s run)")]
 for name, label in runs:
     text = read(f"thermd-{name}.txt")
     r = result(text)
     if not r:
         continue
-    fan = re.search(r"fan ON , (\d+) us", text)
+    fan = re.search(r"fan ON , (\d+) us", text[:re.search(r"RESULT ", text).start()])
     w(f"| {label} | {r['prio']} | {r['periods']} | {r['missed']} | {r['skipped']} | "
       f"{r['late_p99_us']} / {r['late_max_us']} | {r['resp_p99_us']} / {r['resp_max_us']} | "
       f"{fan.group(1) + ' µs' if fan else 'never'} | thermd-{name}.txt |")
 w("")
+w("What to read from this: below hog, thermd loses every period while hog runs and never sees the over-temperature; "
+  "above it, it loses almost none. The few misses at priority 30 have wake-up lateness spikes of several milliseconds "
+  "with nothing of higher priority running in QNX. The host-load run gets misses of the same kind with no load in QNX at all, "
+  "only with the host busy, so they most likely come from the emulated processors not getting host time, which no priority "
+  "inside the guest can fix. The host-load run has no temperature change if it was recorded before `measure.sh` included it.\n")
 
 rec = read("recovery.txt")
 if rec:

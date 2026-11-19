@@ -22,7 +22,7 @@ bash "$B" ssh "slay -f smb-supervisor >/dev/null 2>&1; slay -f thermd >/dev/null
     nohup /tmp/thermd -q -t $((2 * N + 4)) </dev/null >/tmp/th.out 2>&1 &
     sleep 2
     for i in \$(seq $N); do slay -s KILL -f i2c-ichsmb; sleep 2; done
-    sleep 4; slay -f smb-supervisor"
+    sleep 4; slay -f smb-supervisor >/dev/null; true    # slay exits with the number it killed"
 {
     echo "smb-supervisor recovery: $N x kill -9 of i2c-ichsmb $DRIVER_OPTS, one every 2 s, thermd running"
     echo "QEMU $MACHINE (emulated time), $(date '+%Y-%m-%d %H:%M')"
