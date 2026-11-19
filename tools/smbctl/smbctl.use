@@ -1,0 +1,37 @@
+Talk to chips on an I2C bus through /dev/i2cN
+
+Syntax:
+    smbctl [-d /dev/i2cN] [-j] COMMAND ...
+
+Options:
+    -d dev      I2C device (default /dev/i2c0)
+    -j          print results as JSON, one object per line
+
+Commands:
+    scan                       list chips that answer (0x08..0x77), probing
+                               with Receive Byte
+    get   ADDR REG             read one byte register
+    set   ADDR REG VALUE       write one byte register
+    getw  ADDR REG             read a 16-bit register, low byte first
+                               (SMBus Read Word)
+    setw  ADDR REG VALUE       write a 16-bit register, low byte first
+    read  ADDR REG [COUNT]     read COUNT bytes from REG on
+    write ADDR REG BYTE...     write bytes from REG on
+    recv  ADDR [COUNT]         read with no register byte
+    dump  ADDR [LEN]           hex dump of registers 0..LEN-1 (default 256);
+                               uses block reads, or byte reads if the
+                               controller can't do them
+    temp  ADDR                 LM75/TMP105-style temperature (register 0)
+    watch ADDR REG MS [COUNT]  read REG every MS ms and print it when it
+                               changes; reopens the device if the driver
+                               restarts
+    info                       what the driver reports about itself
+
+Numbers take C syntax (0x48 or 72).
+Exit status: 0 success, 1 the transfer or the device failed, 2 bad usage.
+
+Examples:
+    smbctl scan
+    smbctl temp 0x48
+    smbctl dump 0x50 128
+    smbctl -j get 0x48 1
