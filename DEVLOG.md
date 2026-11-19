@@ -147,3 +147,63 @@ i2c-ichsmb: ICH9 SMBus at I/O 0x700, polling, status 0x00
 Interrupt mode (`-i`) works as well: `pidin irqs` shows the driver attached to IRQ 10 with a pulse event, and all of the above pass, including a 32-byte I2C block read.
 
 One thing to fix: started from an SSH session with output going to the session, the driver keeps the session's output open after it turns into a daemon, so the SSH command never returns. For now I start it with output redirected. Logging should move to slog2.
+
+## 19 Nov 2026, evening: complete driver (M2)
+
+### What libi2c-master does around the driver
+
+I disassembled parts of `libi2c-master.a` where the docs were silent:
+
+- `_i2c_options()` takes `--u N` (unit, default 0) and `--b N` (speed, default 100000), removes them, and leaves everything else for the driver's `init()`. Single-dash options pass straight through.
+- `main()` runs the options, then `init()`, then `procmgr_daemon(0, NOCLOSE | NODEVNULL)`. Standard input and output stay open, which is why starting the driver over SSH without redirection kept the session open. QNX's other I2C drivers behave the same way.
+- `i2c_slogf(verbosity, level, ...)` only logs when `verbosity >= level`, and the library uses the verbosity from our `driver_info` to decide whether to log every failed transfer at error level.
+- A requested bus speed is stored per open connection and applied at the next transfer. If the driver refuses it, that transfer fails, while `DCMD_I2C_SET_BUS_SPEED` itself returns OK.
+- A zero-length send never reaches the driver, so an SMBus Quick command can't be issued through the devctls.
+
+### Driver changes
+
+- slog2 logging with levels (default warnings and errors, more with `-v`). Start-up errors also go to stderr.
+- `-U user[:group]`: after start-up keep only PATHSPACE, PUBLIC_CHANNEL and (with `-i`) INTERRUPT, lock them, switch user with `set_ids_from_arg()`, then deny and lock everything else. I/O port access stays with the thread.
+- A small hardware table (ICH9, PIIX4) and `-p bus:dev.func` for naming a controller. With `-p`, an untested Intel SMBus-class function is tried as ICH-compatible, with a warning.
+- `set_bus_speed` refuses anything but 100 kHz. The chipset runs the SMBus at a fixed clock.
+- `abort()` implemented, and usage text embedded with `usemsg` (`use i2c-ichsmb`).
+- Private channel and `_NTO_INTR_FLAGS_TRK_MSK` for the interrupt. The lost-interrupt reasoning is in `docs/DESIGN.md`.
+
+### On-target tests
+
+`tests/target/t_xfer` runs raw devctl operations in order and prints one result line each. `tests/run_tests.py` boots the guest, copies the binaries, restarts the driver in each mode (polling, `-i`, `-s`, `-i -U qnxuser`), sets the sensor over QMP and compares every line with the case files in `tests/cases/`. Run with `make test` (q35) or `make test-pc` (pc).
+
+My first version of `t_xfer` put the data after a union of the three message headers. `i2c_sendrecv_t` is 4 bytes longer than `i2c_send_t`, so plain sends had their data 4 bytes too late, and the driver dutifully wrote zeros. Each call now builds its own header-plus-data buffer.
+
+Results, saved in `docs/results/`:
+
+- q35 (ICH9): 46 of 46 pass.
+- pc (PIIX4): 42 of 42 pass. The 4 q35-only cases need block transfers or `-s`. PIIX4 refuses block requests, as designed, and `-i` falls back to polling.
+
+My first pc run had one failure, and the expectation was the bug: the 31-byte write that the q35 case relies on is refused on PIIX4, so the bytes read back later are 00.
+
+The suite covers:
+
+- every row of the mapping table and every refusal;
+- NACK on write, read and register read;
+- bus reset;
+- both bus-speed cases;
+- 1000 times (failed read, good read) in each mode;
+- five sensor values set from the host, including -10.5 C and the 0.5 C rounding of the TMP105's 9-bit mode;
+- the non-root checks;
+- 10,000-read soaks.
+
+Soak, 10,000 word reads, QEMU with KVM:
+
+| Machine | Mode | us per read | driver CPU |
+|---|---|---|---|
+| q35 | polling | 1498 | 4.2 s |
+| q35 | interrupt | 204 | 2.0 s |
+| pc | polling | 1350 | 3.6 s |
+| pc | `-i` (falls back to polling) | 1403 | 3.7 s |
+
+No transfer failed in any soak.
+
+### QNX's own sample client
+
+`tests/third_party/fetch_and_run.sh` clones QNX's hardware-component-samples at a fixed commit into a temporary folder, builds `common/rpi_i2c` for x86_64 with its own Makefile, links it with `sample_main.c` and runs it against `/dev/i2c0`. I read the library first: its read and write calls are plain SENDRECV and SEND devctls that map onto Read Byte Data, I2C Block Read, Write Byte Data and block write. The run itself is still to do.

@@ -1,0 +1,56 @@
+i2c-ichsmb on-target tests, QEMU machine q35, 2026-11-19 10:43
+
+PASS  driver info: 7-bit, standard speed, force-stop            [poll]
+PASS  scan finds the sensor and 8 EEPROMs                       [poll]
+PASS  Write Byte Data, Read Byte Data                           [poll]
+PASS  Write Word Data, Read Word Data                           [poll]
+PASS  Send Byte sets the pointer, Receive Byte reads it         [poll]
+PASS  block write 4 bytes, I2C block read 4                     [poll]
+PASS  block write 31 bytes, I2C block read 31                   [poll]
+PASS  I2C block read 32 matches byte reads                      [poll]
+PASS  I2C block read 3 (shortest block read)                    [poll]
+PASS  32-byte block write: QEMU model bug gives a clean error   [poll]
+PASS  refused: write of 35 bytes                                [poll]
+PASS  refused: read of 33 after a register byte                 [poll]
+PASS  refused: two-byte register address                        [poll]
+PASS  refused: 2-byte read with no register byte                [poll]
+PASS  refused: 10-bit address                                   [poll]
+PASS  refused: write without stop (library, force-stop)         [poll]
+PASS  zero-length write never reaches the driver (library)      [poll]
+PASS  NACK: write to an empty address                           [poll]
+PASS  NACK: read from an empty address                          [poll]
+PASS  NACK: register read from an empty address                 [poll]
+PASS  NACK then success on the same connection                  [poll]
+PASS  bus reset, then a normal read                             [poll]
+PASS  bus speed 100 kHz accepted                                [poll]
+PASS  bus speed 400 kHz refused at the next transfer            [poll]
+PASS  1000 x (failed read, good read)                           [poll]
+PASS  sensor: power-up value 0 C                                [poll]
+PASS  sensor: host sets 25 C                                    [poll]
+PASS  sensor: host sets -10.5 C                                 [poll]
+PASS  sensor: host sets 100 C                                   [poll]
+PASS  sensor: 30.25 C reads 30.0 (9-bit default)                [poll]
+PASS  smbctl temp                                               [poll]
+PASS  irq: register write and read back                         [irq]
+PASS  irq: block write and read back                            [irq]
+PASS  irq: NACK then success                                    [irq]
+PASS  irq: sensor                                               [irq]
+PASS  user: register write and read back                        [user]
+PASS  user: block write and read back                           [user]
+PASS  user: NACK then success                                   [user]
+PASS  user: sensor                                              [user]
+PASS  user: driver runs as uid 1000 after -U qnxuser            [user]
+PASS  user: started without root it stops with a clear message  [none]
+PASS  smbus: SMBus block write and read (count byte)            [smbus]
+PASS  soak poll: 10000 word reads                               [poll]
+        OK n=10000 us=1498
+         2764821 tmp/i2c-ichsmb                     1 Nov 19 04:43  4.200  0.000  0.000  0.000
+PASS  soak poll: 2000 x 32-byte block reads                     [poll]
+        OK n=2000 us=3182
+PASS  soak irq: 10000 word reads                                [irq]
+        OK n=10000 us=204
+         2936853 tmp/i2c-ichsmb                     1 Nov 19 04:43  1.995  0.000  0.000  0.000
+PASS  soak irq: 2000 x 32-byte block reads                      [irq]
+        OK n=2000 us=1655
+
+46 cases, 46 passed, 0 failed, 40 s

@@ -9,9 +9,10 @@ Work in progress for the QNX Global Hackathon 2026.
 | Part | State |
 |---|---|
 | Transaction engine (`driver/core`) | Done. Passes the host tests and runs against QEMU's ICH9 SMBus controller. |
-| QNX driver (`driver/qnx`) | Runs on QNX 8.0 in QEMU (q35), polling or interrupt mode. Creates `/dev/i2c0`. |
+| QNX driver (`driver/qnx`) | Runs on QNX 8.0 in QEMU on both ICH9 (q35) and PIIX4 (pc). Polling or interrupt mode, slog2 logging, can drop to a normal user after start-up. |
+| On-target tests | 46 cases on q35, 42 on pc, all passing (`docs/results/`). |
 | `tools/smbctl` | Scan, register read/write, temperature read, through the standard I2C devctls. |
-| Demo, docs | Not started. |
+| Demo | Not started. |
 
 Not tested on real hardware yet.
 
@@ -44,6 +45,16 @@ bench/qemu/run-qnx.sh ssh '/tmp/i2c-ichsmb -i >/dev/null 2>&1 </dev/null; /tmp/s
 
 ## Running the tests
 
+On-target tests (QNX kit, QEMU from `bench/qemu/build-qemu.sh`, an image made as above):
+
+```
+source ~/qnx800/qnxsdp-env.sh
+make test        # q35, ICH9
+make test-pc     # pc, PIIX4
+```
+
+The runner boots QNX, copies the binaries over, restarts the driver in each mode, sets the sensor through QMP and checks every result. How the driver maps requests, handles errors and drops privileges is in `docs/DESIGN.md`.
+
 Host tests (any C99 compiler):
 
 ```
@@ -73,8 +84,11 @@ driver/core/     portable engine and request mapping
 driver/qnx/      QNX resource-manager glue (libi2c-master)
 tests/host/      software controller model and unit tests
 tests/baremetal/ UEFI test program for QEMU's q35 machine
+tests/target/    on-target test client (t_xfer)
+tests/cases/     on-target test cases, run by tests/run_tests.py
 tools/smbctl/    command-line client for /dev/i2cN
 bench/qemu/      QEMU build with I2C sensor models, QNX boot script
+docs/            design notes and saved test results
 ```
 
 ## License
