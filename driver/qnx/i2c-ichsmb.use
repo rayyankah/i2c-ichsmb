@@ -1,7 +1,7 @@
 I2C master driver for the Intel chipset SMBus controller (ICH family, PIIX4)
 
 Syntax:
-    i2c-ichsmb [--u unit] [--b speed] [-i] [-p bus:dev.func] [-s] [-t ms]
+    i2c-ichsmb [--u unit] [--b speed] [-i | -I irq] [-p bus:dev.func] [-s] [-t ms]
                [-U user[:group]] [-v...]
 
 Options handled by the I2C library:
@@ -11,6 +11,11 @@ Options handled by the I2C library:
 
 Driver options:
     -i          interrupt mode (default: polling). PIIX4 is polling only.
+    -I irq      interrupt mode on this interrupt number instead of the one
+                the PCI server reports. Needed when the PCI server's routing
+                table lacks the controller, e.g. QEMU q35 (use -I 16). If no
+                interrupt arrives in the first 20 transactions, the driver
+                logs a warning.
     -p b:d.f    use the controller at this PCI address (hex), e.g. 0:1f.3.
                 Without -p the first supported controller is used. With -p,
                 untested Intel SMBus functions are treated as ICH-compatible.
@@ -20,11 +25,13 @@ Driver options:
     -t ms       per-transaction timeout (default 100)
     -U user     after start-up keep only the abilities the driver needs
                 and run as this user (name or uid:gid). Start as root.
-    -v          more logging to slog2 (repeat for more). Default: warnings
-                and errors.
+    -v          more logging to slog2 (repeat for more), buffer set
+                i2c_ichsmb: slog2info -b i2c_ichsmb. Default: warnings and
+                errors.
 
 Examples:
     i2c-ichsmb -i -U qnxuser       interrupt mode, run as qnxuser
+    i2c-ichsmb -I 16               interrupt mode on interrupt 16 (QEMU q35)
     i2c-ichsmb --u 1 -p 0:1f.3     /dev/i2c1 for the controller at 0:1f.3
 
 Transfers the controller can express are listed in driver/core/smb_map.c.

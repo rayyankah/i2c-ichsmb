@@ -4,7 +4,7 @@
 #   source ~/qnx800/qnxsdp-env.sh
 CC      = qcc -Vgcc_ntox86_64
 CFLAGS  = -std=gnu99 -O2 -g -Wall -Wextra -I../core
-LIBS    = -li2c-master -lsecpol -lpci
+LIBS    = -li2c-master -lsecpol -lpci -lslog2
 SRCS    = i2c-ichsmb.c ../core/smb_core.c ../core/smb_map.c
 
 i2c-ichsmb: $(SRCS) ../core/smb_core.h ../core/ichsmb_regs.h i2c-ichsmb.use

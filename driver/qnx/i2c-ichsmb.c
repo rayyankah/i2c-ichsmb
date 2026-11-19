@@ -28,6 +28,7 @@
 #include <sys/mman.h>
 #include <sys/procmgr.h>
 #include <sys/slog.h>
+#include <sys/slog2.h>
 #include <hw/inout.h>
 #include <hw/i2c.h>
 #include <pci/pci.h>
@@ -70,6 +71,9 @@ typedef struct {
     uintptr_t    iobase;
     int          irq;           /* -1: polling */
     int          want_irq;
+    int          irq_override;  /* -I: interrupt number to use instead of the PCI server's */
+    unsigned     pulses;        /* interrupt events received */
+    int          irq_warned;
     int          iid;
     int          chid, coid;
     int          irq_masked;    /* the kernel masked the line when it delivered our event */
@@ -79,6 +83,28 @@ typedef struct {
 } ichsmb_t;
 
 /* ------------------------------------------------------------------ logging */
+
+/*
+ * libi2c-master logs through vslogf(). On QNX 8 that reaches slog2 only if
+ * the process has set a default slog2 buffer; without one the messages are
+ * dropped. Register a buffer set named i2c_ichsmb (read it with
+ * "slog2info -b i2c_ichsmb"). Filtering by level happens in i2c_slogf().
+ */
+static void slog_setup(void)
+{
+    static slog2_buffer_t buf;
+    slog2_buffer_set_config_t cfg;
+
+    memset(&cfg, 0, sizeof(cfg));
+    cfg.buffer_set_name = "i2c_ichsmb";
+    cfg.num_buffers = 1;
+    cfg.verbosity_level = SLOG2_DEBUG2;
+    cfg.buffer_config[0].buffer_name = "main";
+    cfg.buffer_config[0].num_pages = 4;
+    if (slog2_register(&cfg, &buf, 0) == 0) {
+        slog2_set_default_buffer(buf);
+    }
+}
 
 static void logmsg(ichsmb_t *h, unsigned level, const char *fmt, ...)
 {
@@ -138,16 +164,48 @@ static void q_wait(void *ctx, uint32_t max_us)
         TimerTimeout(CLOCK_MONOTONIC, _NTO_TIMEOUT_RECEIVE, NULL, &ns, NULL);
         if (MsgReceivePulse(h->chid, &pulse, sizeof(pulse), NULL) == 0 && pulse.code == IRQ_PULSE_CODE) {
             h->irq_masked = 1;
+            h->pulses++;
         }
     }
 }
 
-/* Called by the core once the controller's status is serviced and cleared,
- * so the line is low again. Unmask only if the kernel masked it for us. */
+/*
+ * Called by the core once the controller's status is serviced and cleared,
+ * so the line is low again. Unmask exactly once for each time the kernel
+ * delivered the event (and masked the line).
+ *
+ * The event can be delivered without q_wait() ever receiving it: when the
+ * transaction is already finished at the first status read, the core never
+ * waits. QEMU's model does that every time (with interrupts enabled it runs
+ * the whole transaction inside the START write). The pulse would then sit on
+ * the channel and the line would stay masked, which on real hardware also
+ * blocks any other device sharing it. So collect a pending pulse here,
+ * without blocking, before deciding.
+ */
 static void q_irq_done(void *ctx)
 {
     ichsmb_t *h = ctx;
 
+    if (h->irq >= 0 && !h->irq_masked) {
+        struct _pulse pulse;
+
+        TimerTimeout(CLOCK_MONOTONIC, _NTO_TIMEOUT_RECEIVE, NULL, NULL, NULL);   /* don't block */
+        if (MsgReceivePulse(h->chid, &pulse, sizeof(pulse), NULL) == 0 && pulse.code == IRQ_PULSE_CODE) {
+            h->irq_masked = 1;
+            h->pulses++;
+        }
+    }
+    if (h->irq >= 0 && !h->irq_warned) {
+        /* Say once whether the interrupt works: a wrong number fails silently otherwise. */
+        if (h->pulses > 0) {
+            h->irq_warned = 1;
+            logmsg(h, _SLOG_INFO, "first interrupt received (interrupt %d)", h->irq);
+        } else if (h->dev.stats.transactions >= 20) {
+            h->irq_warned = 1;
+            logmsg(h, _SLOG_WARNING, "no interrupt after 20 transactions: interrupt %d is probably not "
+                   "this controller's, give the right one with -I", h->irq);
+        }
+    }
     if (h->irq >= 0 && h->irq_masked) {
         h->irq_masked = 0;
         InterruptUnmask(h->irq, h->iid);
@@ -245,7 +303,9 @@ static int setup_ich(ichsmb_t *h)
     if (hostc & ICH_HOSTC_I2C_EN) {
         h->dev.caps |= SMB_CAP_I2C_WRITE;
     }
-    if (h->want_irq) {
+    if (h->want_irq && h->irq_override >= 0) {
+        h->irq = h->irq_override;
+    } else if (h->want_irq) {
         pci_irq_t irq[1];
         int_t     nirq = 1;
 
@@ -360,16 +420,19 @@ static void *ichsmb_init(int argc, char *argv[])
         return NULL;
     }
     h->irq = -1;
+    h->irq_override = -1;
     h->iid = -1;
     h->chid = h->coid = -1;
     h->verbose = _SLOG_WARNING;
     h->starting = 1;
+    slog_setup();
     smb_bus_init(&h->bus, &h->dev);
 
     optind = 1;
-    while ((c = getopt(argc, argv, "ip:st:U:v")) != -1) {
+    while ((c = getopt(argc, argv, "iI:p:st:U:v")) != -1) {
         switch (c) {
         case 'i': h->want_irq = 1; break;
+        case 'I': h->want_irq = 1; h->irq_override = atoi(optarg); break;
         case 'p': where = optarg; break;
         case 's': h->bus.smbus_block_read = 1; break;
         case 't': h->dev.timeout_us = (uint32_t)strtoul(optarg, NULL, 0) * 1000u; break;
@@ -392,10 +455,11 @@ static void *ichsmb_init(int argc, char *argv[])
         goto fail;
     }
     h->model = hw->name;
-    if ((hw->kind == KIND_ICH ? setup_ich(h) : setup_piix4(h)) != 0 || h->iobase == 0) {
-        if (h->iobase == 0) {
-            logmsg(h, _SLOG_ERROR, "%s SMBus has no I/O base (disabled by firmware?)", h->model);
-        }
+    if ((hw->kind == KIND_ICH ? setup_ich(h) : setup_piix4(h)) != 0) {
+        goto fail;                  /* setup said why */
+    }
+    if (h->iobase == 0) {
+        logmsg(h, _SLOG_ERROR, "%s SMBus has no I/O base (disabled by firmware?)", h->model);
         goto fail;
     }
     h->iobase = mmap_device_io(SMB_IO_LEN, h->iobase);
@@ -414,7 +478,16 @@ static void *ichsmb_init(int argc, char *argv[])
     if (h->irq >= 0) {
         struct sigevent ev;
 
-        h->chid = ChannelCreate(_NTO_CHF_PRIVATE);
+        /*
+         * FIXED_PRIORITY: receiving a pulse normally sets the receiving
+         * thread to the pulse's priority. The interrupt pulse comes at the
+         * priority of the thread that attached it (10), so without this flag
+         * a transfer for a priority-30 client finished at priority 10, and
+         * anything in between could stall it (measured, DEVLOG 19 Nov). With
+         * it, the thread keeps the priority it inherited from the client's
+         * message.
+         */
+        h->chid = ChannelCreate(_NTO_CHF_PRIVATE | _NTO_CHF_FIXED_PRIORITY);
         h->coid = h->chid == -1 ? -1 : ConnectAttach(0, 0, h->chid, _NTO_SIDE_CHANNEL, 0);
         if (h->coid != -1) {
             SIGEV_PULSE_INIT(&ev, h->coid, SIGEV_PULSE_PRIO_INHERIT, IRQ_PULSE_CODE, 0);
@@ -428,9 +501,15 @@ static void *ichsmb_init(int argc, char *argv[])
     }
 
     smb_reset(&h->dev);
-    logmsg(h, _SLOG_INFO, "%s SMBus at %x:%02x.%x, I/O 0x%lx, %s, status 0x%02x", h->model,
-           (unsigned)PCI_BUS(h->bdf), (unsigned)PCI_DEV(h->bdf), (unsigned)PCI_FUNC(h->bdf),
-           (unsigned long)h->iobase, h->irq >= 0 ? "interrupt" : "polling", q_in8(h, SMB_HST_STS));
+    if (h->irq >= 0) {
+        logmsg(h, _SLOG_INFO, "%s SMBus at %x:%02x.%x, I/O 0x%lx, interrupt %d%s, status 0x%02x", h->model,
+               (unsigned)PCI_BUS(h->bdf), (unsigned)PCI_DEV(h->bdf), (unsigned)PCI_FUNC(h->bdf),
+               (unsigned long)h->iobase, h->irq, h->irq_override >= 0 ? " (-I)" : "", q_in8(h, SMB_HST_STS));
+    } else {
+        logmsg(h, _SLOG_INFO, "%s SMBus at %x:%02x.%x, I/O 0x%lx, polling, status 0x%02x", h->model,
+               (unsigned)PCI_BUS(h->bdf), (unsigned)PCI_DEV(h->bdf), (unsigned)PCI_FUNC(h->bdf),
+               (unsigned long)h->iobase, q_in8(h, SMB_HST_STS));
+    }
 
     if (h->run_as != NULL && drop_privileges(h) != 0) {
         goto fail;
@@ -449,9 +528,9 @@ static void ichsmb_fini(void *hdl)
 
     if (h->iobase != 0 && h->dev.io.in8 != NULL) {
         smb_reset(&h->dev);
-        logmsg(h, _SLOG_INFO, "%u transactions, %u NACKs, %u bus errors, %u timeouts",
+        logmsg(h, _SLOG_INFO, "%u transactions, %u NACKs, %u bus errors, %u timeouts, %u interrupts",
                (unsigned)h->dev.stats.transactions, (unsigned)h->dev.stats.nacks,
-               (unsigned)h->dev.stats.bus_errors, (unsigned)h->dev.stats.timeouts);
+               (unsigned)h->dev.stats.bus_errors, (unsigned)h->dev.stats.timeouts, h->pulses);
     }
     if (h->iid != -1) {
         InterruptDetach(h->iid);
