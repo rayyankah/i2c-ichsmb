@@ -206,4 +206,6 @@ No transfer failed in any soak.
 
 ### QNX's own sample client
 
-`tests/third_party/fetch_and_run.sh` clones QNX's hardware-component-samples at a fixed commit into a temporary folder, builds `common/rpi_i2c` for x86_64 with its own Makefile, links it with `sample_main.c` and runs it against `/dev/i2c0`. I read the library first: its read and write calls are plain SENDRECV and SEND devctls that map onto Read Byte Data, I2C Block Read, Write Byte Data and block write. The run itself is still to do.
+`tests/third_party/fetch_and_run.sh` clones QNX's hardware-component-samples at a fixed commit into a temporary folder, builds `common/rpi_i2c` for x86_64 with its own Makefile, links it with `sample_main.c` and runs it against `/dev/i2c0`. I read the library first: its read and write calls are plain SENDRECV and SEND devctls that map onto Read Byte Data, I2C Block Read, Write Byte Data and block write.
+
+Ran it on q35 with `-i`: all six checks pass (`docs/results/qnx-sample.txt`). The library wrote a byte and an 8-byte block to the EEPROM and read both back, read the sensor, and got an error back from the empty address 0x20. On that last call the library also prints "error with devctl: Input/output error" to stderr itself, which is why that line isn't in the saved file. The sensor reads 0.0 C because nothing set a temperature for this run, and QEMU's TMP105 starts at 0. The check only asks whether the read succeeds; the temperature values are covered by `40-sensor.json`.
