@@ -1,0 +1,12 @@
+QNX hardware-component-samples, common/rpi_i2c at 6276447fac3bb2d251e2690ab627037b1990e509, built unchanged for x86_64
+Driver: i2c-ichsmb -i on QEMU q35, 2026-11-19 14:04
+
+PASS  smbus_write_byte_data(0x56, reg 0x05, 0x5a)
+      read back 0x5a
+PASS  smbus_read_byte_data returns 0x5a
+PASS  smbus_write_block_data(0x56, reg 0x20, 8 bytes)
+PASS  smbus_read_block_data returns the same 8 bytes
+      sensor raw 0x0000 = 0.0 C
+PASS  smbus_read_block_data(0x48, reg 0, 2) reads the sensor
+PASS  smbus_read_byte_data on an empty address fails
+ALL PASSED
