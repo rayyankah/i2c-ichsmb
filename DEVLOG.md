@@ -248,3 +248,14 @@ While looking for the probe's messages I found slog2 had nothing from the driver
 ### Failure scenarios
 
 New tests: no driver running; a second driver on the same controller (refused by the PCI server, the first keeps serving; its error message used to add a wrong "no I/O base" line, fixed); TMP105 register pointer wrapping (2 bits, like the chip); write to the read-only temperature register; EEPROM address wrap; three kills under the supervisor; boots with one sensor left out and with none. What QEMU can't produce is in `docs/LIMITS.md`.
+
+### Recorded runs (`docs/RESULTS.md`)
+
+Getting the recorded runs done took three tries, and each turned something up:
+
+- The first full run was stopped by my tools when Windows ran short of memory (8 GB laptop, WSL, QEMU).
+- The PIIX4 suite then hung on the new "second copy of the driver" case. On PIIX4 the driver only attached the PCI device when it had to switch the host controller on, and QEMU's firmware already had, so a second driver started happily next to the first. It now always attaches, which is what claims the device. The test's second driver also kept the SSH session open (standard output again); it now writes to a file.
+- After that the q35 guest booted without its file systems. mkqnximage's `disk-qemu.vmdk` is a 512-byte descriptor pointing at the raw `disk-qemu`, and QEMU rewrites it on each open; after the forced stops it was full of `parentCID=` lines and had lost the extent line, so QEMU attached an empty disk. `run-qnx.sh` now uses the raw file directly. The data itself was fine.
+- `bench/recovery.sh` failed once because QNX's `slay` exits with the number of processes it killed, so killing one is exit status 1.
+
+Results: host tests 32/32, q35 63/63, pc 53/53. thermd over 60 s: no load 0 missed of 6000; hog at 20 with thermd at 30, 10 missed (interrupt mode) and 8 (polling); thermd at 10 under hog, 5800 missed and the over-temperature never seen. The plan said "no missed deadline at 30", and that didn't hold. The misses come with lateness spikes up to 24 ms with nothing above thermd in QNX, so I ran thermd with no load in QNX and two busy loops on the host instead: 2 missed. I think the rest is the emulated processors not getting host time, and I've written it that way rather than tune the run until it shows zero. Recovery: 20 kills, 20 restarts in 4 to 8 ms, 20 ms without data each time, no missed deadline.

@@ -32,7 +32,7 @@ It doesn't poll and doesn't need to be the driver's parent (libi2c-master detach
 On the bench (`bench/measure.sh`, results in `docs/RESULTS.md`):
 
 1. thermd at priority 30 with nothing else running keeps every deadline.
-2. With hog spinning at 20 on both processors, thermd at 30 still keeps them, and the fan comes on within the period that sees the over-temperature. QNX gives the processor to the highest-priority ready thread, and the driver serving thermd's request runs at thermd's priority because message passing carries it over.
+2. With hog spinning at 20 on both processors, thermd at 30 still keeps all but a handful in 6000 (10 in the recorded run), and the fan comes on within the period that sees the over-temperature. The handful most likely comes from the emulator: thermd misses a couple with no load in QNX at all when only the host is busy (`docs/RESULTS.md`). QNX gives the processor to the highest-priority ready thread, and the driver serving thermd's request runs at thermd's priority because message passing carries it over.
 3. The same run with thermd at 10, below hog, loses every period while hog runs and never sees the over-temperature.
 4. Before a one-flag fix in the driver, run 2 failed like run 3. The interrupt pulse dropped the driver thread to priority 10 in the middle of thermd's request (`docs/DESIGN.md`, Priority).
 5. `kill -9` of the driver under smb-supervisor: thermd logs a gap of a couple of periods and carries on (`bench/recovery.sh`).
