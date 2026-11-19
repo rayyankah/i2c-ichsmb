@@ -1,0 +1,31 @@
+I2C master driver for the Intel chipset SMBus controller (ICH family, PIIX4)
+
+Syntax:
+    i2c-ichsmb [--u unit] [--b speed] [-i] [-p bus:dev.func] [-s] [-t ms]
+               [-U user[:group]] [-v...]
+
+Options handled by the I2C library:
+    --u unit    create /dev/i2c<unit> (default 0)
+    --b speed   bus speed in Hz; only 100000 is accepted, the chipset
+                runs the SMBus at a fixed clock
+
+Driver options:
+    -i          interrupt mode (default: polling). PIIX4 is polling only.
+    -p b:d.f    use the controller at this PCI address (hex), e.g. 0:1f.3.
+                Without -p the first supported controller is used. With -p,
+                untested Intel SMBus functions are treated as ICH-compatible.
+    -s          reads of 3 to 33 bytes after a one-byte register use SMBus
+                Block Read (the chip sends a count byte first) instead of
+                I2C Block Read
+    -t ms       per-transaction timeout (default 100)
+    -U user     after start-up keep only the abilities the driver needs
+                and run as this user (name or uid:gid). Start as root.
+    -v          more logging to slog2 (repeat for more). Default: warnings
+                and errors.
+
+Examples:
+    i2c-ichsmb -i -U qnxuser       interrupt mode, run as qnxuser
+    i2c-ichsmb --u 1 -p 0:1f.3     /dev/i2c1 for the controller at 0:1f.3
+
+Transfers the controller can express are listed in driver/core/smb_map.c.
+Anything else is refused with an error rather than approximated.
