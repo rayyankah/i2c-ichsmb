@@ -12,3 +12,4 @@ driver/qnx/i2c-ichsmb
 output/
 local/
 qnx-image/
+tools/smbctl/smbctl
