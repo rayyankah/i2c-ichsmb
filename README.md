@@ -9,10 +9,11 @@ Work in progress for the QNX Global Hackathon 2026.
 | Part | State |
 |---|---|
 | Transaction engine (`driver/core`) | Done. Passes the host tests and runs against QEMU's ICH9 SMBus controller. |
-| QNX glue (`driver/qnx`) | Drafted from the QNX docs, not built yet. Lines marked `CHECK` still need comparing with the SDP headers. |
-| Tools, demo, docs | Not started. |
+| QNX driver (`driver/qnx`) | Runs on QNX 8.0 in QEMU (q35), polling or interrupt mode. Creates `/dev/i2c0`. |
+| `tools/smbctl` | Scan, register read/write, temperature read, through the standard I2C devctls. |
+| Demo, docs | Not started. |
 
-Nothing has run on QNX or on real hardware yet.
+Not tested on real hardware yet.
 
 ## How it is built
 
@@ -23,6 +24,23 @@ The controller logic is plain C99 in `driver/core`, with no OS calls. It reaches
 - on bare metal inside QEMU, against QEMU's own controller model (`tests/baremetal`). QEMU's model was written by other people from the same Intel datasheet, so this is an independent check. It also needs no QNX licence.
 
 `driver/core/smb_map.c` turns generic I2C requests into SMBus transactions. The chipset controller can only run a fixed set of transaction shapes, so for each request the mapper picks the one that puts exactly the same bytes on the wire. If no shape fits, it refuses the request rather than sending something close. The table is at the top of the file.
+
+## Trying it on QNX
+
+You need QNX SDP 8.0 (free non-commercial licence) on Linux or WSL2, and the QEMU from `bench/qemu/build-qemu.sh`.
+
+```
+source ~/qnx800/qnxsdp-env.sh
+mkdir -p ~/work/qnx-image && cd ~/work/qnx-image
+mkqnximage --type=qemu --arch=x86_64 --ssh-ident=$HOME/.ssh/id_ed25519.pub --ip=dhcp --noprompt
+cd -
+make -C driver/qnx && make -C tools/smbctl
+bench/qemu/run-qnx.sh start
+bench/qemu/run-qnx.sh scp driver/qnx/i2c-ichsmb tools/smbctl/smbctl root@127.0.0.1:/tmp/
+bench/qemu/run-qnx.sh ssh '/tmp/i2c-ichsmb -i >/dev/null 2>&1 </dev/null; /tmp/smbctl scan; /tmp/smbctl temp 0x48'
+```
+
+`run-qnx.sh` boots the image on QEMU's q35 machine, which has the ICH9 SMBus controller, with a temperature sensor at 0x48 whose value can be changed over QMP.
 
 ## Running the tests
 
@@ -55,7 +73,8 @@ driver/core/     portable engine and request mapping
 driver/qnx/      QNX resource-manager glue (libi2c-master)
 tests/host/      software controller model and unit tests
 tests/baremetal/ UEFI test program for QEMU's q35 machine
-bench/qemu/      QEMU build with I2C sensor models
+tools/smbctl/    command-line client for /dev/i2cN
+bench/qemu/      QEMU build with I2C sensor models, QNX boot script
 ```
 
 ## License

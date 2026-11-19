@@ -104,3 +104,46 @@ My first build was interrupted and left truncated object files that broke the li
 With `-device tmp105,address=0x48,id=temp0` on q35, the sensor shows up in the scan next to the EEPROMs, and 31 of 31 checks pass.
 
 `tests/baremetal/sensor_qmp.sh` starts QEMU paused and uses QMP `qom-set` to set the `temperature` property of `/machine/peripheral/temp0` to 42500 (millidegrees). It then resumes the machine. The core reads the raw word `0x802A`, which is 42.5 C: the whole degrees come first on the wire, so they land in the low byte of the SMBus word.
+
+## 19 Nov 2026, later: first run on QNX
+
+### Kit
+
+QNX SDP 8.0 installed through the QNX Software Center on Ubuntu 26.04 (WSL2). The base install already has everything the driver needs: `qcc` for x86_64, `<hw/i2c.h>`, `libi2c-master.a`, `<pci/pci.h>`, `libpci` and `mkqnximage`. No extra package was needed.
+
+The installed kit has no `i2c-*` driver at all and nothing that drives an ICH or PIIX4 SMBus. "SMBus" only appears in the PCI device-name table.
+
+### Headers against the draft
+
+All the PCI calls and types I had guessed from the docs match `<pci/pci.h>`. Two things in `<hw/i2c.h>` changed the driver:
+
+- `i2c_driver_info_t` has a `caps` field, and `I2C_CAPS_FORCE_STOP` describes this controller exactly: it can't hold the bus between two messages. The library refuses that flag unless the driver has `xfer()` ("xfer() is needed for I2C_CAPS_FORCE_STOP set" is one of its strings). The driver now sets the flag, and the library hands write-then-read requests over as one call.
+- The library's `check_mstatus()` treats only an exact `I2C_STATUS_DONE` as success. For anything else it logs each set bit and fails the devctl with EIO. I read that from its disassembly, since the docs only say "returns one of". Errors are now returned as `DONE | cause`.
+
+The driver builds with `-Wall -Wextra` and no warnings.
+
+### Booting on q35
+
+`mkqnximage --type=qemu` builds a working image, but its runner starts QEMU with no `-machine`, so the guest gets the default `pc` machine and the PIIX4 SMBus. It also wants a network bridge set up as root. `bench/qemu/run-qnx.sh` starts the same image on `q35` instead, with user-mode networking (SSH on 127.0.0.1:2222) and a tmp105 at 0x48.
+
+One catch: the image uses `devb-eide`, and on q35 a plain `-drive if=ide` lands on the AHCI controller. Adding a PIIX4 IDE controller (`-device piix4-ide`) and putting the disk on it fixed that. QNX boots in about 6 seconds with KVM.
+
+`pci-tool -v` in the guest shows `8086/2930 Intel 82801I (ICH9 Family) SMBus Controller` at B0:D31:F3, and nothing claims it.
+
+### End to end
+
+```
+# /tmp/i2c-ichsmb -v
+i2c-ichsmb: ICH9 SMBus at I/O 0x700, polling, status 0x00
+```
+
+`/dev/i2c0` appears. `tools/smbctl` (new) uses only the standard I2C devctls:
+
+- `scan` finds 0x48 and 0x50 to 0x57, nothing else.
+- `write 0x50 0x10 0xde 0xad 0xbe 0xef`, then `read 0x50 0x10 4`, gives `de ad be ef`. One- and two-byte reads of the same place agree.
+- `recv 0x20` (empty address) fails with "no acknowledge", exit status 1.
+- `temp 0x48` reads 0.0 C. After `qom-set` of 30250 millidegrees from the host it reads 30.0 C, raw 0x1e00. That's right: the TMP105 powers up in 9-bit mode, which has 0.5 C steps.
+
+Interrupt mode (`-i`) works as well: `pidin irqs` shows the driver attached to IRQ 10 with a pulse event, and all of the above pass, including a 32-byte I2C block read.
+
+One thing to fix: started from an SSH session with output going to the session, the driver keeps the session's output open after it turns into a daemon, so the SSH command never returns. For now I start it with output redirected. Logging should move to slog2.
