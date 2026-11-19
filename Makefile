@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 #   make host-test   host unit tests of driver/core (any C compiler)
-#   make qnx         build the driver, smbctl and the test client
+#   make qnx         build the driver, smbctl, the test client and the demo
 #                    (needs: source ~/qnx800/qnxsdp-env.sh)
 #   make test        on-target tests in QEMU, q35 machine (ICH9)
 #   make test-pc     on-target tests in QEMU, pc machine (PIIX4)
@@ -19,6 +19,7 @@ qnx:
 	$(MAKE) -C driver/qnx
 	$(MAKE) -C tools/smbctl
 	$(MAKE) -C tests/target
+	$(MAKE) -C demo
 
 test: qnx
 	@mkdir -p docs/results
@@ -33,3 +34,4 @@ clean:
 	$(MAKE) -C driver/qnx clean
 	$(MAKE) -C tools/smbctl clean
 	$(MAKE) -C tests/target clean
+	$(MAKE) -C demo clean

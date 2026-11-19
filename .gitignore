@@ -15,3 +15,6 @@ qnx-image/
 tools/smbctl/smbctl
 tests/target/t_xfer
 tests/third_party/qnx_sample
+demo/thermd/thermd
+demo/hog/hog
+demo/supervisor/smb-supervisor

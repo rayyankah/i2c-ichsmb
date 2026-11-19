@@ -1,0 +1,29 @@
+Real-time temperature monitor for sensors on /dev/i2cN
+
+Syntax:
+    thermd [-d /dev/i2cN] [-s ADDR]... [-T period_ms] [-D deadline_ms]
+           [-H threshold_C] [-f ADDR:REG | -f none] [-P priority]
+           [-t seconds] [-q]
+
+Options:
+    -d dev       I2C device (default /dev/i2c0)
+    -s ADDR      LM75/TMP105-style sensor to read; repeat for more
+                 (default 0x48 and 0x49, up to 4)
+    -T ms        sampling period (default 10)
+    -D ms        deadline for each period's work (default: the period)
+    -H C         over-temperature threshold (default 80); back to normal
+                 5 C below it
+    -f ADDR:REG  register that turns the fan on (1) and off (0)
+                 (default 0x57:0x00, a byte in an EEPROM on the bench);
+                 "none" to only log
+    -P prio      SCHED_FIFO priority (default 30)
+    -t s         stop after this many seconds and print the report
+                 (default: run until SIGINT or SIGTERM)
+    -q           no once-a-second status line
+
+The report gives minimum, median, 99th percentile and maximum of the
+wake-up lateness and the response time of every period, and counts
+missed deadlines. A RESULT line repeats the numbers for scripts.
+
+If the driver dies, thermd reopens the device and logs how long it had
+no data.
