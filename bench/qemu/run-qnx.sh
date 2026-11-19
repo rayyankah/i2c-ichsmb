@@ -46,13 +46,17 @@ start() {
     fi
     accel=(-cpu max)
     [ -w /dev/kvm ] && accel=(-enable-kvm -cpu host)
+    # The raw disk, not mkqnximage's disk-qemu.vmdk descriptor: QEMU rewrites
+    # that 512-byte descriptor on every open, and after a few forced stops it
+    # lost its extent line and the guest saw an empty disk.
+    drive="file=$IMAGE/output/disk-qemu,format=raw"
     if [ "$MACHINE" = q35 ]; then
         # q35 puts if=ide disks on AHCI, which devb-eide can't drive: add a PIIX4 IDE controller
         disk=(-device piix4-ide,id=pide
-              -drive file="$IMAGE/output/disk-qemu.vmdk",if=none,id=drv0
+              -drive "$drive",if=none,id=drv0
               -device ide-hd,drive=drv0,bus=pide.0)
     else
-        disk=(-drive file="$IMAGE/output/disk-qemu.vmdk",if=ide)
+        disk=(-drive "$drive",if=ide)
     fi
     sensors=() i=0
     for a in $SENSORS; do sensors+=(-device "tmp105,address=$a,id=temp$i"); i=$((i + 1)); done
