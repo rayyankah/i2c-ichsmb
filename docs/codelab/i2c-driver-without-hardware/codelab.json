@@ -1,0 +1,26 @@
+{
+  "environment": "web",
+  "format": "html",
+  "prefix": "https://storage.googleapis.com",
+  "mainga": "UA-49880327-14",
+  "updated": "2026-11-20T20:11:22+06:00",
+  "id": "i2c-driver-without-hardware",
+  "duration": 45,
+  "title": "Write and test a QNX 8.0 I2C driver without hardware",
+  "authors": "Rayyan Khalil",
+  "summary": "Run a QNX 8.0 I2C driver against emulated sensors in QEMU, read a sensor from your own program, change its value from the host, and add a tested error path.",
+  "source": "codelab/i2c-driver-without-hardware.md",
+  "theme": "",
+  "status": [
+    "published"
+  ],
+  "category": [
+    "storage\u0026hardware",
+    "camera\u0026sensors"
+  ],
+  "tags": [
+    "intermediate"
+  ],
+  "feedback": "https://github.com/rayyankah/i2c-ichsmb/issues",
+  "url": "i2c-driver-without-hardware"
+}
