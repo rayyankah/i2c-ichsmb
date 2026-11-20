@@ -34,4 +34,4 @@ Every time in `docs/results/` is measured inside the emulator: register accesses
 - 10-bit addresses (the controller can't).
 - Bus speeds other than 100 kHz (the chipset fixes the clock); other speeds are refused.
 - Interrupt mode on PIIX4.
-- More than one controller per driver process (start one driver per controller, with `-p` and `--u`).
+- More than one controller per driver process (start one driver per controller, with `-p` for the controller and the library's `--u` for the `/dev/i2cN` number).

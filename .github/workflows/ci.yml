@@ -2,6 +2,7 @@
 # Runs the parts of the test suite that need no QNX licence:
 #   1. host unit tests of driver/core against the software controller model
 #   2. the same core on bare metal against QEMU's ICH9 SMBus controller
+#   3. that docs/QNX-EVIDENCE.md still points at the right lines
 name: tests
 on: [push, pull_request]
 jobs:
@@ -11,6 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: make -C tests/host
+      - run: python3 tests/check_evidence.py
   qemu-baremetal:
     runs-on: ubuntu-24.04
     timeout-minutes: 15

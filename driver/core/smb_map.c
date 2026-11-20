@@ -51,7 +51,7 @@ int smb_bus_set_addr(smb_bus_t *b, unsigned addr)
     /*
      * I2C reserves 0x00-0x07 and 0x78-0x7F. 0x00 is the general call: every
      * chip on the bus takes the write. On QEMU a Send Byte to 0x00 moved the
-     * register pointer of both sensors and every EEPROM. No client asking for
+     * register pointer of both sensors and of the EEPROMs. No client asking for
      * one chip means that, so refuse the whole reserved range.
      */
     if (addr < 0x08 || addr > 0x77) {

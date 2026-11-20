@@ -1,5 +1,7 @@
 # Design
 
+![Architecture: clients send devctl messages to the i2c-ichsmb process, which drives the ICH9 SMBus controller in QEMU; the host sets sensor values over QMP](architecture.svg)
+
 ## Layers
 
 ```
@@ -39,6 +41,10 @@ An I2C client asks for raw bytes: "write these n bytes", "read n bytes", "write,
 
 1. Only when the controller adds the count byte itself (I2C_EN clear, `-s`) and the request's second byte already equals the number of bytes after it. The request then is a well-formed SMBus block write.
 2. Only with `-s`. The client's buffer receives the count byte first, then the data, which is what a raw I2C master would see.
+
+### Addresses
+
+Only 7-bit addresses from 0x08 to 0x77 are accepted. 0x00 to 0x07 and 0x78 to 0x7F are reserved by I2C, and 0x00 is the general call, which every chip on the bus takes. Before 20 Nov a Send Byte to 0x00 went out; on QEMU it moved the register pointer of both sensors and of the three EEPROMs checked (0x50, 0x53, 0x57), so their next plain read returned the wrong register. `smb_bus_set_addr()` now refuses the reserved range, and the client sees `EIO` with no status bit set (`smbctl` says "refused by the driver"). Tested in `tests/cases/30-errors.json`.
 
 ### SMBus block versus I2C block
 
@@ -102,14 +108,15 @@ The interrupt channel is now created with `_NTO_CHF_FIXED_PRIORITY`, so the thre
 
 | Mode | Time per read | Driver CPU time for the run |
 |---|---|---|
-| polling | 1362 µs | 3.6 s |
-| interrupt | 280 µs | 2.9 s |
+| polling | 1304 µs | 3.9 s |
+| interrupt | 335 µs | 3.4 s |
 
 Both numbers describe QEMU more than hardware. With interrupts enabled, QEMU finishes the transaction inside the START write, so the time is register traps plus one interrupt. With interrupts off, QEMU reports the controller busy until the first status read, so the polling driver always sleeps once, and QNX rounds the 250 µs sleep up to its 1 ms timer tick. On hardware a word read is about half a millisecond of bus time at 100 kHz in either mode; interrupt mode saves the processor time spent polling and the tick rounding.
 
 Block reads in interrupt mode raise one interrupt per byte, so there they cost more than polling in QEMU.
 
 PIIX4 is polling only.
+
 ## Privileges (`-U`)
 
 The driver must start as root to get I/O port access (`ThreadCtl(_NTO_TCTL_IO_LEVEL)`), attach to the PCI device and attach the interrupt. With `-U user`, once that is done `init()`:
@@ -129,3 +136,16 @@ Messages go through the library's `i2c_slogf()`, which calls `vslogf()`. On QNX 
 libi2c-master turns the process into a daemon with `procmgr_daemon(0, PROCMGR_DAEMON_NOCLOSE | PROCMGR_DAEMON_NODEVNULL)`, so standard input, output and error stay open. Started from a startup script that's fine. Started over SSH, give it `</dev/null >/dev/null 2>&1`, or the SSH session stays open.
 
 Stopping the driver with `slay` ends the process without calling its `fini()`, so the closing summary (transactions, errors, interrupts) doesn't get logged then.
+
+## References
+
+Everything here was written from public documents. No code was copied from another SMBus driver.
+
+- Intel I/O Controller Hub 9 (ICH9) Family Datasheet, chapter "SMBus Controller Registers (D31:F3)".
+- Intel 82371AB PCI-to-ISA/IDE Xcelerator (PIIX4) Datasheet, chapter "SMBus I/O Space Registers".
+- QNX I2C Driver Development Kit: https://www.qnx.com/developers/docs/qnxeverywhere/com.qnx.doc.ddk/topic/i2c/driver_I2C.html, with `driver_I2C_implementation.html` and `I2C_example.html` next to it.
+- I2C framework function table: https://www.qnx.com/developers/docs/8.0/com.qnx.doc.neutrino.custom_bsp/topic/i2c/i2c_framework_Function_table.html
+- PCI server library: https://www.qnx.com/developers/docs/8.0/com.qnx.doc.pci_server/topic/library.html
+- QNX 8.0 C library reference for `ThreadCtl()`, `mmap_device_io()`, `InterruptAttachEvent()`, `ChannelCreate()`, `procmgr_ability()` and `slog2_register()`.
+- The installed headers `<hw/i2c.h>` and `<pci/pci.h>`, for what the pages above leave open (listed in DEVLOG, 14 Nov).
+- QEMU's controller model, `hw/i2c/pm_smbus.c`, read to explain its timing and to find the block-write bug. It is GPL code and only used as a test target; none of it is in this repository.
