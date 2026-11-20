@@ -8,6 +8,9 @@
 #
 # Test output is saved under docs/results/.
 
+# The test targets use bash's PIPESTATUS.
+SHELL := /bin/bash
+
 .PHONY: all host-test qnx test test-pc clean
 
 all: host-test qnx
