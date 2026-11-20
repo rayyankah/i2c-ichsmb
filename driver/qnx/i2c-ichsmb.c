@@ -590,7 +590,7 @@ static int ichsmb_set_slave_addr(void *hdl, unsigned int addr, i2c_addrfmt_t fmt
     ichsmb_t *h = hdl;
 
     if (fmt != I2C_ADDRFMT_7BIT || smb_bus_set_addr(&h->bus, addr) != SMB_OK) {
-        logmsg(h, _SLOG_DEBUG1, "refused address 0x%x (format %d): 7-bit addresses only", addr, (int)fmt);
+        logmsg(h, _SLOG_DEBUG1, "refused address 0x%x (format %d): 7-bit, 0x08 to 0x77 only", addr, (int)fmt);
         errno = EINVAL;
         return -1;
     }

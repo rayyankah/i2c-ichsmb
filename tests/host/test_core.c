@@ -238,6 +238,11 @@ static void t_map_refusals(void)
     CHECK_INT(smb_bus_xfer(&f.bus, NULL, 2, NULL, 0), SMB_E_INVAL);
     CHECK_INT(smb_bus_xfer(&f.bus, s, 1, NULL, 2), SMB_E_INVAL);
     CHECK_INT(smb_bus_set_addr(&f.bus, 0x80), SMB_E_INVAL);             /* 10-bit address */
+    CHECK_INT(smb_bus_set_addr(&f.bus, 0x00), SMB_E_INVAL);             /* general call */
+    CHECK_INT(smb_bus_set_addr(&f.bus, 0x07), SMB_E_INVAL);             /* reserved */
+    CHECK_INT(smb_bus_set_addr(&f.bus, 0x78), SMB_E_INVAL);             /* reserved */
+    CHECK_INT(smb_bus_set_addr(&f.bus, 0x08), SMB_OK);                  /* first usable */
+    CHECK_INT(smb_bus_set_addr(&f.bus, 0x77), SMB_OK);                  /* last usable */
     CHECK_INT(f.sim.starts, 0);                                          /* none reached the bus */
     CHECK_TRACE(&f.sim, "");
 }

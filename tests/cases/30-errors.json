@@ -38,6 +38,24 @@
   ]
  },
  {
+  "name": "refused: general call 0x00, which every chip would take",
+  "qmp": [
+   {
+    "temp": 25000
+   }
+  ],
+  "ops": [
+   "sendrecv:0x48:00:1",
+   "send:0x00:01",
+   "recv:0x48:1"
+  ],
+  "expect": [
+   "OK 19",
+   "ERR EIO",
+   "OK 19"
+  ]
+ },
+ {
   "name": "bus reset, then a normal read",
   "ops": [
    "reset",

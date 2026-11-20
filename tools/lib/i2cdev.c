@@ -77,7 +77,8 @@ const char *i2cdev_error(int fd, int rc)
         if (st & I2C_STATUS_ARBL)  return "bus error";
         if (st & I2C_STATUS_BUSY)  return "timed out";
         if (st & I2C_STATUS_ABORT) return "aborted";
-        return "request not supported by the controller";
+        if (st & I2C_STATUS_ERROR) return "request not supported by the controller";
+        return "refused by the driver (reserved address?)";
     }
     return strerror(rc);
 }
