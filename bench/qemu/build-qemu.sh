@@ -11,11 +11,14 @@
 #
 # Result: $PREFIX/bin/qemu-system-x86_64 (default PREFIX=~/work/qemu).
 # Takes 20-40 minutes on a 4-core laptop. Re-running resumes the build.
+# JOBS sets how many compilers run at once (default: one per processor);
+# lower it if memory is short, e.g. JOBS=2.
 set -euo pipefail
 
 VER=${VER:-10.2.1}
 SRC=${SRC:-$HOME/work/qemu-src}
 PREFIX=${PREFIX:-$HOME/work/qemu}
+JOBS=${JOBS:-$(nproc)}
 # QEMU release signing key (Michael Roth), as published on qemu.org
 KEY=CEACC9E15534EBABB82D3FA03353C9CEF108B584
 
@@ -44,7 +47,7 @@ if [ ! -f build/build.ninja ]; then
         --enable-slirp --enable-kvm --disable-docs --disable-werror \
         --disable-gtk --disable-sdl --disable-vnc --disable-opengl > ../configure.log 2>&1
 fi
-make -j"$(nproc)" > ../make.log 2>&1 || { tail -20 ../make.log; exit 1; }
+make -j"$JOBS" > ../make.log 2>&1 || { tail -20 ../make.log; exit 1; }
 make install > ../install.log 2>&1
 "$PREFIX/bin/qemu-system-x86_64" -device help | grep -E '"(tmp105|tmp421|emc1413|at24c-eeprom)"'
 echo "built: $PREFIX/bin/qemu-system-x86_64"

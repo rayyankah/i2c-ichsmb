@@ -24,6 +24,8 @@ bench/bench up      # the first time this also builds QEMU (20 to 40 minutes) an
 bench/bench test
 ```
 
+The QEMU build runs one compiler per processor. If memory is short (it was on an 8 GB laptop running WSL), start with `JOBS=2 bench/bench up`; re-running `up` after an interrupted build carries on where it stopped.
+
 `up` ends with a scan of the bus: two temperature sensors (0x48, 0x49) and eight EEPROMs (0x50 to 0x57). `test` runs the on-target suite against the running guest and ends with a line like `64 cases, 64 passed, 0 failed, 100 s`. `bench/bench down` stops the guest.
 
 ## What this is and why
