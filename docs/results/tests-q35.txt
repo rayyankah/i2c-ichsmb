@@ -1,4 +1,4 @@
-i2c-ichsmb on-target tests, QEMU machine q35, 2026-11-19 16:59
+i2c-ichsmb on-target tests, QEMU machine q35, 2026-11-20 20:06
 
 PASS  driver info: 7-bit, standard speed, force-stop                                   [poll]
 PASS  scan finds 2 sensors and 8 EEPROMs                                               [poll]
@@ -21,6 +21,7 @@ PASS  NACK: write to an empty address                                           
 PASS  NACK: read from an empty address                                                 [poll]
 PASS  NACK: register read from an empty address                                        [poll]
 PASS  NACK then success on the same connection                                         [poll]
+PASS  refused: general call 0x00, which every chip would take                          [poll]
 PASS  bus reset, then a normal read                                                    [poll]
 PASS  bus speed 100 kHz accepted                                                       [poll]
 PASS  bus speed 400 kHz refused at the next transfer                                   [poll]
@@ -48,21 +49,21 @@ PASS  irq: a wrong interrupt number is reported (PCI server's 10)               
 PASS  irq: transfers still work when the interrupt never comes                         [badirq]
 PASS  irq: driver logs to slog2 buffer i2c_ichsmb                                      [irqlog]
 PASS  soak poll: 10000 word reads                                                      [poll]
-        OK n=10000 us=1290
-         3309589 tmp/i2c-ichsmb                     1 Nov 19 10:58  3.357  0.000  0.000  0.000
+        OK n=10000 us=1304
+         3346453 tmp/i2c-ichsmb                     1 Nov 20 14:04  3.909  0.000  0.000  0.000
 PASS  soak poll: 2000 x 32-byte block reads                                            [poll]
-        OK n=2000 us=2874
+        OK n=2000 us=3022
 PASS  soak irq: 10000 word reads                                                       [irq]
-        OK n=10000 us=263
-         3481621 tmp/i2c-ichsmb                     1 Nov 19 10:58  2.712  0.000  0.000  0.000
+        OK n=10000 us=335
+         3518485 tmp/i2c-ichsmb                     1 Nov 20 14:04  3.422  0.000  0.000  0.000
 PASS  soak irq: 2000 x 32-byte block reads                                             [irq]
-        OK n=2000 us=2947
-PASS  realtime: thermd at 30 keeps every period while hog spins at 20                  [irq]
-        RESULT periods=600 missed=0 skipped=0 late_p99_us=857 late_max_us=924 resp_p99_us=3245 resp_max_us=4318 failed_reads=0 gaps=0 prio=30
-PASS  realtime: thermd at 10 loses periods while hog spins at 20                       [irq]
-        RESULT periods=600 missed=400 skipped=399 late_p99_us=1069 late_max_us=3999283 resp_p99_us=3051 resp_max_us=4000167 failed_reads=0 gaps=0 prio=10
-PASS  realtime: same in polling mode, thermd at 30 keeps every period                  [poll]
-        RESULT periods=600 missed=6 skipped=0 late_p99_us=5037 late_max_us=9306 resp_p99_us=10266 resp_max_us=17213 failed_reads=0 gaps=0 prio=30
+        OK n=2000 us=3439
+PASS  realtime: thermd at 30 wakes up in 99% of periods while hog spins at 20          [irq]
+        RESULT periods=600 missed=43 skipped=4 late_p99_us=9854 late_max_us=12906 resp_p99_us=14300 resp_max_us=22893 failed_reads=0 gaps=0 prio=30
+PASS  realtime: thermd at 10 loses at least 100 periods while hog spins at 20          [irq]
+        RESULT periods=600 missed=406 skipped=401 late_p99_us=18275 late_max_us=3995894 resp_p99_us=28263 resp_max_us=3997246 failed_reads=0 gaps=0 prio=10
+PASS  realtime: same in polling mode, thermd at 30 wakes up in 99% of periods          [poll]
+        RESULT periods=600 missed=1 skipped=0 late_p99_us=1049 late_max_us=5932 resp_p99_us=4762 resp_max_us=11032 failed_reads=0 gaps=0 prio=30
 PASS  failure: no driver running, clients get a clear error                            [none]
 PASS  failure: a second copy of the driver refuses to start, the first keeps serving   [irq]
 PASS  failure: register past the TMP105's four wraps to register 0                     [poll]
@@ -71,8 +72,8 @@ PASS  failure: TMP105 high limit is writable (restored after)                   
 PASS  failure: EEPROM read past its last byte wraps to 0                               [poll]
 PASS  failure: driver killed 3 times under smb-supervisor, thermd carries on           [none]
         3
-        RESULT periods=800 missed=0 skipped=0 late_p99_us=984 late_max_us=1259 resp_p99_us=3809 resp_max_us=4250 failed_reads=3 gaps=3 prio=30
+        RESULT periods=800 missed=0 skipped=0 late_p99_us=944 late_max_us=1199 resp_p99_us=2925 resp_max_us=5494 failed_reads=3 gaps=3 prio=30
 PASS  failure: sensor 0x49 left out of this boot: NACK, scan finds 9                   [poll]
 PASS  failure: no sensors at all this boot: thermd reports the NACK and keeps running  [irq]
 
-63 cases, 63 passed, 0 failed, 100 s
+64 cases, 64 passed, 0 failed, 105 s

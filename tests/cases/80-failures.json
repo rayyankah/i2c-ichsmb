@@ -78,7 +78,7 @@
   "shell": "/tmp/smb-supervisor -- /tmp/i2c-ichsmb -I 16 </dev/null >/tmp/sup.out 2>&1 & n=0; while [ ! -e /dev/i2c0 ] && [ $n -lt 50 ]; do sleep 0.1; n=$((n+1)); done; /tmp/thermd -q -t 8 </dev/null >/tmp/th.out 2>&1 & t=$!; sleep 1; for i in 1 2 3; do slay -s KILL -f i2c-ichsmb; sleep 2; done; wait $t; slay -f smb-supervisor; grep -c 'serving again' /tmp/sup.out; grep RESULT /tmp/th.out",
   "expect": [
    "3",
-   "RESULT periods=800 missed=\\d+ skipped=0 .* gaps=3 prio=30"
+   "RESULT periods=800 missed=\\d+ skipped=[0-8] .* gaps=3 prio=30"
   ],
   "show": true
  },

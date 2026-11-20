@@ -31,4 +31,4 @@ ok   wire: only the final read byte is not acknowledged
 ok   reset clears stale status
 ok   every error code has a message
 
-32 cases, 0 failed, 261 checks
+32 cases, 0 failed, 266 checks
