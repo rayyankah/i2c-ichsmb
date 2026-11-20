@@ -40,8 +40,8 @@ qnx_env() {
 
 need_qemu() {
     [ -x "$QEMU" ] && return 0
-    say "QEMU with the I2C sensor models is missing; building it (about 10 minutes)"
-    bash "$HERE/qemu/build-qemu.sh"
+    say "QEMU with the I2C sensor models is missing; building it (20 to 40 minutes)"
+    PREFIX=$(dirname "$(dirname "$QEMU")") bash "$HERE/qemu/build-qemu.sh"
 }
 
 need_image() {
